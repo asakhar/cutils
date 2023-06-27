@@ -13,6 +13,7 @@ impl<T> ResultIgnoreExt for Result<T, T> {
   }
 }
 
+#[cfg(not(no_std))]
 impl<T> ResultIgnoreExt for Result<T, std::sync::PoisonError<T>> {
   type Result = T;
   fn ignore(self) -> Self::Result {

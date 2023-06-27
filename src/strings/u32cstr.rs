@@ -7,6 +7,7 @@ common_cstring_impls!(U32CString, u32, U32CStr);
 common_str_writes_impl!(U32CStr, length_as_u32);
 common_string_writes_impl!(U32CString, length_as_u32);
 
+#[cfg(not(feature = "no_std"))]
 impl super::writes::io::Write32 for &mut U32CStr {
   fn write32(&mut self, buf: &[u32]) -> std::io::Result<usize> {
     let writable = self.capacity_usize() - 1;
@@ -29,6 +30,7 @@ impl super::writes::io::Write32 for &mut U32CStr {
   }
 }
 
+#[cfg(not(feature = "no_std"))]
 impl super::writes::io::Write32 for U32CString {
   fn write32(&mut self, buf: &[u32]) -> std::io::Result<usize> {
     let (inner, len) = self.inner();

@@ -1,15 +1,15 @@
 pub use core;
 
 pub const fn panic_on_invalid_utf8(slice: &[u8]) {
-  if std::str::from_utf8(slice).is_err() {
+  if core::str::from_utf8(slice).is_err() {
     panic!("Invalid utf-8");
   }
 }
 
-pub const fn check_is_valid_utf8(slice: &[u8]) -> Result<(), std::str::Utf8Error> {
-  match std::str::from_utf8(slice) {
+pub const fn check_is_valid_utf8(slice: &[u8]) -> Result<(), core::str::Utf8Error> {
+  match core::str::from_utf8(slice) {
     Err(err) => Err(err),
-    _ => Ok(())
+    _ => Ok(()),
   }
 }
 

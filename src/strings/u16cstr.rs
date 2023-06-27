@@ -7,6 +7,7 @@ common_cstring_impls!(U16CString, u16, U16CStr);
 common_str_writes_impl!(U16CStr, length_as_u16);
 common_string_writes_impl!(U16CString, length_as_u16);
 
+#[cfg(not(feature = "no_std"))]
 impl super::writes::io::Write16 for &mut U16CStr {
   fn write16(&mut self, buf: &[u16]) -> std::io::Result<usize> {
     let writable = self.capacity_usize() - 1;
@@ -29,6 +30,7 @@ impl super::writes::io::Write16 for &mut U16CStr {
   }
 }
 
+#[cfg(not(feature = "no_std"))]
 impl super::writes::io::Write16 for U16CString {
   fn write16(&mut self, buf: &[u16]) -> std::io::Result<usize> {
     let (inner, len) = self.inner();
@@ -52,7 +54,7 @@ impl super::writes::fmt::Write16 for &mut U16CStr {
       return Err(core::fmt::Error);
     }
     space[0..buf.len_with_nul_usize()].copy_from_slice(buf.as_slice_with_nul());
-    *self = unsafe {core::mem::transmute(&mut space[buf.len_usize()..])};
+    *self = unsafe { core::mem::transmute(&mut space[buf.len_usize()..]) };
     Ok(())
   }
 }
@@ -60,8 +62,8 @@ impl super::writes::fmt::Write16 for &mut U16CStr {
 impl super::writes::fmt::Write16 for U16CString {
   fn write16_str(&mut self, buf: &U16CStr) -> core::fmt::Result {
     let (inner, len) = self.inner();
-    inner.resize(*len+buf.len_with_nul_usize(), 0);
-    inner[*len..*len+buf.len_with_nul_usize()].copy_from_slice(buf.as_slice_with_nul());
+    inner.resize(*len + buf.len_with_nul_usize(), 0);
+    inner[*len..*len + buf.len_with_nul_usize()].copy_from_slice(buf.as_slice_with_nul());
     self.refresh();
     Ok(())
   }

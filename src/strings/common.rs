@@ -41,7 +41,7 @@ macro_rules! common_cstr_impls {
       }
       pub const fn as_slice(&self) -> &[$type] {
         // Const implementation of: "&self.0[0..self.len_usize()]""
-        unsafe { std::slice::from_raw_parts(self.0.as_ptr(), self.len_usize()) }
+        unsafe { core::slice::from_raw_parts(self.0.as_ptr(), self.len_usize()) }
       }
       pub unsafe fn as_mut_slice(&mut self) -> &mut [$type] {
         let len = self.len_usize();
@@ -49,7 +49,7 @@ macro_rules! common_cstr_impls {
       }
       pub const fn as_slice_with_nul(&self) -> &[$type] {
         // Const implementation of: "&self.0[0..self.len_with_nul_usize()]"
-        unsafe { std::slice::from_raw_parts(self.0.as_ptr(), self.len_with_nul_usize()) }
+        unsafe { core::slice::from_raw_parts(self.0.as_ptr(), self.len_with_nul_usize()) }
       }
       pub unsafe fn as_mut_slice_with_nul(&mut self) -> &mut [$type] {
         let len = self.len_with_nul_usize();
@@ -402,6 +402,7 @@ macro_rules! common_str_writes_impl {
         Ok(())
       }
     }
+    #[cfg(not(feature = "no_std"))]
     impl std::io::Write for &mut $name {
       fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         let writable = self.0.len() - 1;
@@ -462,6 +463,7 @@ macro_rules! common_string_writes_impl {
         Ok(())
       }
     }
+    #[cfg(not(feature = "no_std"))]
     impl std::io::Write for $name {
       fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         let prev_len = self.refresh();

@@ -1,4 +1,4 @@
-pub struct Deferred<T: FnOnce()>(Option<T>);
+pub struct Deferred<T: FnOnce()>(core::option::Option<T>);
 
 impl<T: FnOnce()> Deferred<T> {
   #[must_use]
@@ -13,7 +13,7 @@ impl<T: FnOnce()> Deferred<T> {
   }
 }
 
-impl<T: FnOnce()> Drop for Deferred<T> {
+impl<T: FnOnce()> core::ops::Drop for Deferred<T> {
   fn drop(&mut self) {
     let Some(closure) = self.0.take() else {return};
     closure()
@@ -62,7 +62,7 @@ mod tests {
     scope();
     assert_eq!(a.get(), 3);
   }
-  
+
   #[test]
   fn defers_stored_outside() {
     let a = std::cell::Cell::new(1);
@@ -91,7 +91,7 @@ mod tests {
     scope();
     assert_eq!(a.get(), 1);
   }
-  
+
   #[test]
   fn forgets() {
     let a = std::cell::Cell::new(1);
