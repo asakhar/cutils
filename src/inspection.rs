@@ -52,11 +52,48 @@ impl<T> CastToMutVoidPtrExt for *mut T {
   }
 }
 
+#[macro_export]
+macro_rules! csizeof {
+  ($name:path) => {
+    core::mem::size_of::<$name>()
+  };
+  (=$val:expr) => {
+    core::mem::size_of_val(&$val)
+  };
+}
+
 #[cfg(test)]
 mod tests {
   #[test]
   fn function_name() {
     let current_function: &str = current_function!();
     assert_eq!(current_function, "cutils::inspection::tests::function_name");
+  }
+  #[test]
+  fn csizeof_test() {
+    assert_eq!(csizeof!(u64), 8);
+    assert_eq!(csizeof!(u32), 4);
+    assert_eq!(csizeof!(u16), 2);
+    assert_eq!(csizeof!(u8), 1);
+    #[cfg(target_pointer_width = "64")]
+    assert_eq!(csizeof!(usize), 8);
+    #[cfg(target_pointer_width = "32")]
+    assert_eq!(csizeof!(usize), 4);
+    #[cfg(target_pointer_width = "16")]
+    assert_eq!(csizeof!(usize), 2);
+    #[repr(C)]
+    struct A {
+      a: u8,
+      b: u64,
+      c: [u8; 5],
+    }
+    assert_eq!(csizeof!(A), 24);
+    let val = A {
+      a: 0,
+      b: 0,
+      c: [0; 5],
+    };
+    assert_eq!(csizeof!(=val), 24);
+    assert_eq!(csizeof!(=val.a as u64+val.b), 8);
   }
 }
