@@ -227,7 +227,7 @@ macro_rules! common_cstr_impls {
 }
 
 macro_rules! common_cstring_impls {
-  ($name:ident, $type:ty, $asref:ty) => {
+  ($name:ident, $type:ty, $asref:ty, $display:ident) => {
     pub struct $name(core::cell::UnsafeCell<(Vec<$type>, usize)>);
     unsafe impl Send for $name {}
     unsafe impl Sync for $name {}
@@ -354,6 +354,9 @@ macro_rules! common_cstring_impls {
           core::slice::from_raw_parts(data, len + 1).to_vec()
         };
         Self(core::cell::UnsafeCell::new((buf, len)))
+      }
+      pub fn display<'a>(&'a self) -> $display<'a> {
+        self.as_ref().display()
       }
     }
     impl From<&[$type]> for $name {
