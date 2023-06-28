@@ -444,6 +444,25 @@ macro_rules! common_cstring_impls {
         self.as_ref()
       }
     }
+    impl core::borrow::BorrowMut<$asref> for $name {
+      fn borrow_mut(&mut self) -> &mut $asref {
+        self.as_mut()
+      }
+    }
+    impl core::ops::Deref for $name {
+      type Target = $asref;
+
+      #[inline]
+      fn deref(&self) -> &$asref {
+        self.as_ref()
+      }
+    }
+    impl core::ops::DerefMut for $name {
+      #[inline]
+      fn deref_mut(&mut self) -> &mut Self::Target {
+        self.as_mut()
+      }
+    }
     impl Default for $name {
       fn default() -> Self {
         Self::new()
