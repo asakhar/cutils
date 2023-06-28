@@ -11,12 +11,7 @@ pub use cutils_macro::*;
 use get_last_error::Win32Error;
 #[cfg(feature = "winapi")]
 use winapi::{
-  shared::{
-    guiddef::GUID,
-    minwindef::DWORD,
-    ntdef::HANDLE,
-    winerror::{ERROR_GEN_FAILURE, ERROR_SUCCESS},
-  },
+  shared::{guiddef::GUID, minwindef::DWORD, ntdef::HANDLE, winerror::ERROR_SUCCESS},
   um::{cfgmgr32::CONFIGRET, errhandlingapi::SetLastError, handleapi::INVALID_HANDLE_VALUE},
 };
 
@@ -78,13 +73,13 @@ impl<T> GetPvoidExt for T {}
 
 #[cfg(feature = "winapi")]
 pub trait Win32ErrorFromCrExt {
-  fn from_cr(ret: CONFIGRET) -> Win32Error;
+  fn from_cr(ret: CONFIGRET, default: CONFIGRET) -> Win32Error;
 }
 
 #[cfg(feature = "winapi")]
 impl Win32ErrorFromCrExt for Win32Error {
-  fn from_cr(ret: CONFIGRET) -> Win32Error {
-    let err = unsafe { CM_MapCrToWin32Err(ret, ERROR_GEN_FAILURE) };
+  fn from_cr(ret: CONFIGRET, default: CONFIGRET) -> Win32Error {
+    let err = unsafe { CM_MapCrToWin32Err(ret, default) };
     Win32Error::new(err)
   }
 }
