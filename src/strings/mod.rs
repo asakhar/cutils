@@ -1,10 +1,12 @@
 mod common;
 mod cstr;
-mod u16cstr;
-mod u32cstr;
 mod str_macro;
 mod string_macro;
+mod u16cstr;
+mod u32cstr;
 mod writes;
+use std::{ffi::OsString, os::windows::prelude::{OsStringExt, OsStrExt}};
+
 pub use cstr::*;
 pub use u16cstr::*;
 pub use u32cstr::*;
@@ -38,6 +40,25 @@ pub type WideCString = U32CString;
 /// `wchar_t` size on platform.
 #[cfg(windows)]
 pub type WideCString = U16CString;
+
+impl WideCStr {
+  pub fn to_os_string(&self) -> OsString {
+    OsString::from_wide(self.as_slice())
+  }
+}
+
+impl WideCString {
+  pub fn to_os_string(&self) -> OsString {
+    OsString::from_wide(self.as_slice())
+  }
+}
+
+impl From<OsString> for WideCString {
+  fn from(value: OsString) -> Self {
+    let inner: Vec<u16> = value.encode_wide().collect();
+    Self::from(inner)
+  }
+}
 
 impl core::fmt::Display for StrError {
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
