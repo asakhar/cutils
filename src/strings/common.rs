@@ -371,6 +371,11 @@ macro_rules! common_cstring_impls {
         self.as_ref()
       }
     }
+    impl Default for $name {
+      fn default() -> Self {
+        Self::new()
+      }
+    }
   };
 }
 
