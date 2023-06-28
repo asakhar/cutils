@@ -55,10 +55,10 @@ impl<T> CastToMutVoidPtrExt for *mut T {
 #[macro_export]
 macro_rules! csizeof {
   ($name:path) => {
-    core::mem::size_of::<$name>()
+    core::mem::size_of::<$name>() as u32
   };
   (=$val:expr) => {
-    core::mem::size_of_val(&$val)
+    core::mem::size_of_val(&$val) as u32
   };
 }
 
