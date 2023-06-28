@@ -332,6 +332,19 @@ macro_rules! common_cstring_impls {
           Ok(Self(core::cell::UnsafeCell::new((buf, len))))
         }
       }
+
+      pub unsafe fn from_ptr_truncate(data: *const $type, max_len: usize) -> Self {
+        let inf_buf = core::slice::from_raw_parts(data, max_len);
+        let len = inf_buf.iter().take_while(|c| **c != 0).count();
+        let buf = if len == max_len {
+          let mut buf = core::slice::from_raw_parts(data, len).to_vec();
+          buf.push(0);
+          buf
+        } else {
+          core::slice::from_raw_parts(data, len + 1).to_vec()
+        };
+        Self(core::cell::UnsafeCell::new((buf, len)))
+      }
     }
     impl From<&[$type]> for $name {
       fn from(value: &[$type]) -> Self {

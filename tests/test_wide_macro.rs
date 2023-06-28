@@ -1,4 +1,3 @@
-#[cfg(feature = "macro")]
 mod macro_tests {
   use cutils::*;
   use cutils::strings::*;
