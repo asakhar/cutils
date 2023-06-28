@@ -1,9 +1,19 @@
 macro_rules! common_cstr_impls {
-  ($name:ident, $type:ty, $into:ty) => {
+  ($name:ident, $type:ty, $into:ty, $display:ident) => {
     #[repr(transparent)]
     pub struct $name([$type]);
     impl $crate::strings::CStrCharType for $name {
       type Char = $type;
+    }
+    pub struct $display<'a>(&'a [$type]);
+    impl<'a> core::fmt::Display for $display<'a> {
+      fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
+        use core::fmt::Write;
+        for ch in self.0 {
+          f.write_char(char::from_u32(*ch as u32).ok_or(core::fmt::Error)?)?;
+        }
+        Ok(())
+      }
     }
     impl $name {
       // Waiting for https://github.com/rust-lang/rust/issues/8995 to be stabilized
@@ -148,6 +158,9 @@ macro_rules! common_cstr_impls {
           Ok(core::mem::transmute(buf))
         }
       }
+      pub fn display<'a>(&'a self) -> $display<'a> {
+        $display(&self.0[0..self.len_usize()])
+      }
     }
     impl TryFrom<&[$type]> for &$name {
       type Error = $crate::strings::StrError;
@@ -218,7 +231,7 @@ macro_rules! common_cstring_impls {
         Self(core::cell::UnsafeCell::new((buf, 0)))
       }
       pub fn with_capacity(cap: usize) -> Self {
-        let mut buf = vec![0 as $type; cap+1];
+        let mut buf = vec![0 as $type; cap + 1];
         buf.resize(buf.capacity(), 0);
         Self(core::cell::UnsafeCell::new((buf, 0)))
       }
@@ -403,7 +416,7 @@ macro_rules! common_str_writes_impl {
           self.0[i] = cp as CharType;
           buf = rest;
         }
-        self.0[written+1] = 0;
+        self.0[written + 1] = 0;
         Ok(())
       }
     }
@@ -426,7 +439,7 @@ macro_rules! common_str_writes_impl {
           self.0[i] = cp as CharType;
           buf = rest;
         }
-        self.0[written+1] = 0;
+        self.0[written + 1] = 0;
         Ok(written)
       }
 

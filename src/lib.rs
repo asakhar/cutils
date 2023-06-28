@@ -5,6 +5,7 @@ pub mod definitions;
 pub mod ignore;
 pub mod inspection;
 pub mod strings;
+pub use cutils_macro::*;
 
 #[cfg(feature = "get-last-error")]
 use get_last_error::Win32Error;

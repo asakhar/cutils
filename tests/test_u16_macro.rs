@@ -1,4 +1,3 @@
-#[cfg(feature = "macro")]
 mod macro_tests {
   use cutils::strings::*;
   use cutils::*;
@@ -8,6 +7,11 @@ mod macro_tests {
       r.push(*i as u16);
     }
     r
+  }
+  #[test]
+  fn test_display() {
+    let cstr = u16cstr!("123");
+    assert_eq!("123", format!("{}", cstr.display()));
   }
   #[test]
   fn test_u16cstr_macro() {

@@ -14,6 +14,7 @@ winapi = { version = "*", optional = true, features = [
 ] }
 get-last-error = { version = "*", optional = true }
 memoffset = { version = "*", optional = true }
+cutils-macro = { git = "https://github.com/asakhar/cutils-macro.git" }
 
 [features]
 default = ["widestring", "winapi", "get-last-error"]

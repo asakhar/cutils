@@ -1,7 +1,7 @@
 use super::common::{
   common_cstr_impls, common_cstring_impls, common_str_writes_impl, common_string_writes_impl,
 };
-common_cstr_impls!(U16CStr, u16, U16CString);
+common_cstr_impls!(U16CStr, u16, U16CString, DisplayU16CStr);
 common_cstring_impls!(U16CString, u16, U16CStr);
 
 common_str_writes_impl!(U16CStr, length_as_u16);
@@ -71,7 +71,7 @@ impl super::writes::fmt::Write16 for U16CString {
 
 #[cfg(test)]
 mod tests {
-  use crate::strings::io::Write16;
+  use crate::{strings::io::Write16};
 
   use super::{U16CStr, U16CString};
 

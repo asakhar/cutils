@@ -1,6 +1,6 @@
 use super::common::{common_cstr_impls, common_cstring_impls};
 
-common_cstr_impls!(U8CStr, u8, U8CString);
+common_cstr_impls!(U8CStr, u8, U8CString, DisplayU8CStr);
 common_cstring_impls!(U8CString, u8, U8CStr);
 pub type CStr = U8CStr;
 pub type CString = U8CString;
@@ -70,6 +70,12 @@ impl From<&mut core::ffi::CStr> for &mut U8CStr {
 mod tests {
   use super::U8CStr;
   use std::io::Write;
+  #[test]
+  fn test_display() {
+    let buf = *b"123\0";
+    let cstr: &U8CStr = (&buf).try_into().unwrap();
+    assert_eq!("123", format!("{}", cstr.display()));
+  }
 
   #[test]
   fn test_writes_full() {
