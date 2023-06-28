@@ -213,6 +213,16 @@ macro_rules! common_cstr_impls {
         self.into()
       }
     }
+    impl AsRef<$name> for &$name {
+      fn as_ref(&self) -> &$name {
+        self
+      }
+    }
+    impl AsMut<$name> for &mut $name {
+      fn as_mut(&mut self) -> &mut $name {
+        self
+      }
+    }
   };
 }
 
