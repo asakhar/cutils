@@ -164,10 +164,24 @@ macro_rules! common_cstr_impls {
       pub fn display<'a>(&'a self) -> $display<'a> {
         $display(&self.0[0..self.len_usize()])
       }
+      pub fn try_from_slice(value: &[$type]) -> Result<&Self, $crate::strings::StrError> {
+        if value.iter().take_while(|c| **c != 0).count() == value.len() {
+          Err($crate::strings::StrError::NulNotFound)
+        } else {
+          Ok(unsafe { core::mem::transmute(value) })
+        }
+      }
+      pub fn try_from_mut_slice(value: &mut [$type]) -> Result<&mut Self, $crate::strings::StrError> {
+        if value.iter().take_while(|c| **c != 0).count() == value.len() {
+          Err($crate::strings::StrError::NulNotFound)
+        } else {
+          Ok(unsafe { core::mem::transmute(value) })
+        }
+      }
     }
     impl TryFrom<&[$type]> for &$name {
       type Error = $crate::strings::StrError;
-      fn try_from(value: &[$type]) -> Result<Self, $crate::strings::StrError> {
+      fn try_from(value: &[$type]) -> Result<Self, Self::Error> {
         if value.iter().take_while(|c| **c != 0).count() == value.len() {
           Err($crate::strings::StrError::NulNotFound)
         } else {
@@ -264,7 +278,7 @@ macro_rules! common_cstring_impls {
         let cap = inner.0.capacity();
         inner.0.resize(cap, 0);
         let len = inner.0.iter().take_while(|c| **c != 0).count();
-        let new_len = len+additional as usize;
+        let new_len = len + additional as usize;
         inner.0.resize(new_len, 0);
         let cap = inner.0.capacity();
         inner.0.resize(cap, 0);
