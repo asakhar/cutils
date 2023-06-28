@@ -5,7 +5,7 @@ mod string_macro;
 mod u16cstr;
 mod u32cstr;
 mod writes;
-use std::{ffi::OsString, os::windows::prelude::{OsStringExt, OsStrExt}};
+use std::{ffi::{OsString, OsStr}, os::windows::prelude::{OsStringExt, OsStrExt}};
 
 pub use cstr::*;
 pub use u16cstr::*;
@@ -55,6 +55,13 @@ impl WideCString {
 
 impl From<OsString> for WideCString {
   fn from(value: OsString) -> Self {
+    let inner: Vec<u16> = value.encode_wide().collect();
+    Self::from(inner)
+  }
+}
+
+impl From<&OsStr> for WideCString {
+  fn from(value: &OsStr) -> Self {
     let inner: Vec<u16> = value.encode_wide().collect();
     Self::from(inner)
   }
