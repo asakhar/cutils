@@ -22,6 +22,9 @@ macro_rules! common_cstr_impls {
       pub const fn len(&self) -> u32 {
         self.len_usize() as u32
       }
+      pub const fn is_empty(&self) -> bool {
+        self.len_usize() == 0
+      }
       pub const fn len_usize(&self) -> usize {
         let mut items = &self.0;
         let mut i = 0;
@@ -261,6 +264,9 @@ macro_rules! common_cstring_impls {
       }
       pub fn len_usize(&self) -> usize {
         self.refresh()
+      }
+      pub fn is_empty(&self) -> bool {
+        self.len_usize() == 0
       }
       pub fn len_with_nul(&self) -> u32 {
         self.len() + 1
