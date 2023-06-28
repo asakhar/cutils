@@ -33,8 +33,34 @@ macro_rules! defer {
   };
 }
 
+#[macro_export]
+macro_rules! unsafe_defer {
+  (<- $($code:tt)*) => {
+    $crate::deferred::Deferred::new(||unsafe {$($code)*})
+  };
+  ($handle:ident <- $($code:tt)*) => {
+    let $handle = $crate::deferred::Deferred::new(||unsafe {$($code)*});
+  };
+  ($($code:tt)*) => {
+    let _tmp = $crate::deferred::Deferred::new(||unsafe {$($code)*});
+  };
+}
+
 #[cfg(test)]
 mod tests {
+  #[test]
+  fn unsafe_defers() {
+    let a = core::cell::UnsafeCell::new(1);
+    let scope = || {
+      assert_eq!(unsafe { *a.get() }, 1);
+      unsafe_defer! {
+        *a.get() = 3;
+      };
+      assert_eq!(unsafe { *a.get() }, 1);
+    };
+    scope();
+    assert_eq!(unsafe { *a.get() }, 3);
+  }
   #[test]
   fn defers() {
     let a = std::cell::Cell::new(1);
