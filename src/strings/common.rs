@@ -421,6 +421,13 @@ macro_rules! common_cstring_impls {
         Self::new()
       }
     }
+    impl Clone for $name {
+      fn clone(&self) -> Self {
+        self.refresh();
+        let (buf, len) = self.inner();
+        Self(core::cell::UnsafeCell::new((buf.clone(), *len)))
+      }
+    }
   };
 }
 
