@@ -259,7 +259,7 @@ macro_rules! common_cstring_impls {
         inner.1 = len;
         len
       }
-      pub fn reserve(&mut self, additional: u32) {
+      pub fn reserve_usize(&mut self, additional: usize) {
         let inner = self.inner();
         let cap = inner.0.capacity();
         inner.0.resize(cap, 0);
@@ -269,6 +269,9 @@ macro_rules! common_cstring_impls {
         let cap = inner.0.capacity();
         inner.0.resize(cap, 0);
         inner.1 = new_len;
+      }
+      pub fn reserve(&mut self, additional: u32) {
+        self.reserve_usize(additional as usize)
       }
       pub fn len(&self) -> u32 {
         self.len_usize() as u32
