@@ -73,12 +73,12 @@ impl<T> GetPvoidExt for T {}
 
 #[cfg(feature = "winapi")]
 pub trait Win32ErrorFromCrExt {
-  fn from_cr(ret: CONFIGRET, default: CONFIGRET) -> Win32Error;
+  fn from_cr(ret: CONFIGRET, default: DWORD) -> Win32Error;
 }
 
 #[cfg(feature = "winapi")]
 impl Win32ErrorFromCrExt for Win32Error {
-  fn from_cr(ret: CONFIGRET, default: CONFIGRET) -> Win32Error {
+  fn from_cr(ret: CONFIGRET, default: DWORD) -> Win32Error {
     let err = unsafe { CM_MapCrToWin32Err(ret, default) };
     Win32Error::new(err)
   }
