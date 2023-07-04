@@ -5,6 +5,7 @@ pub mod definitions;
 pub mod ignore;
 pub mod inspection;
 pub mod strings;
+pub mod files;
 pub use cutils_macro::*;
 
 #[cfg(feature = "get-last-error")]
