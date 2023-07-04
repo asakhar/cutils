@@ -11,6 +11,7 @@ winapi = { version = "*", optional = true, features = [
   "minwindef",
   "winerror",
   "handleapi",
+  "sysinfoapi",
 ] }
 get-last-error = { version = "*", optional = true }
 memoffset = { version = "*", optional = true }

@@ -1,4 +1,7 @@
+use std::path::{Path, PathBuf};
+
 use get_last_error::Win32Error;
+use winapi::shared::minwindef::MAX_PATH;
 use winapi::shared::{minwindef::DWORD, ntdef::HANDLE};
 use winapi::um::fileapi::{CreateFileA, CreateFileW};
 use winapi::um::fileapi::{
@@ -14,6 +17,8 @@ use winapi::um::winnt::{
 
 use crate::strings::{CStr, WideCStr};
 use crate::{check_handle, Win32Result};
+use winapi::um::sysinfoapi::GetWindowsDirectoryW;
+use winapi::um::winnt::WCHAR;
 
 pub trait FileName {
   fn open<'a, 'b>(
@@ -233,4 +238,15 @@ impl WindowsFile {
   pub fn options() -> WindowsFileOpenOptions<'static, 'static> {
     WindowsFileOpenOptions::default()
   }
+}
+
+pub fn get_windows_dir_path() -> Win32Result<PathBuf> {
+  let mut windows_directory = [0 as WCHAR; MAX_PATH];
+  let result = unsafe { GetWindowsDirectoryW(windows_directory.as_mut_ptr(), MAX_PATH as u32) };
+  if result == 0 {
+    return Err(Win32Error::get_last_error());
+  }
+  let windows_dir = unsafe { WideCStr::from_ptr(windows_directory.as_ptr()) };
+  let windows_dir = windows_dir.to_os_string();
+  Ok(Path::new(&windows_dir).to_owned())
 }
