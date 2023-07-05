@@ -22,6 +22,15 @@ impl<T: FnOnce()> core::ops::Drop for Deferred<T> {
 
 #[macro_export]
 macro_rules! defer {
+  (<- move $($code:tt)*) => {
+    $crate::deferred::Deferred::new(move ||{$($code)*})
+  };
+  ($handle:ident <- move $($code:tt)*) => {
+    let $handle = $crate::deferred::Deferred::new(move ||{$($code)*});
+  };
+  (move $($code:tt)*) => {
+    let _tmp = $crate::deferred::Deferred::new(move ||{$($code)*});
+  };
   (<- $($code:tt)*) => {
     $crate::deferred::Deferred::new(||{$($code)*})
   };
@@ -35,6 +44,15 @@ macro_rules! defer {
 
 #[macro_export]
 macro_rules! unsafe_defer {
+  (<- move $($code:tt)*) => {
+    $crate::deferred::Deferred::new(move ||unsafe {$($code)*})
+  };
+  ($handle:ident <- move $($code:tt)*) => {
+    let $handle = $crate::deferred::Deferred::new(move ||unsafe {$($code)*});
+  };
+  (move $($code:tt)*) => {
+    let _tmp = $crate::deferred::Deferred::new(move ||unsafe {$($code)*});
+  };
   (<- $($code:tt)*) => {
     $crate::deferred::Deferred::new(||unsafe {$($code)*})
   };
@@ -131,5 +149,20 @@ mod tests {
     };
     scope();
     assert_eq!(a.get(), 1);
+  }
+  #[test]
+  fn unsafe_defers_move() {
+    let mut a: i32 = 1;
+    let a_ptr = &mut a as *mut _;
+    let mut scope = || {
+      assert_eq!(a, 1);
+      unsafe_defer! { move
+        *a_ptr = 3;
+      };
+      a = 2;
+      assert_eq!(a, 2);
+    };
+    scope();
+    assert_eq!(a, 3);
   }
 }
