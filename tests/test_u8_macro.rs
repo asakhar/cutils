@@ -40,3 +40,11 @@ fn test_cstring_macro_fmt() {
   assert_eq!(string.as_slice_with_nul(), b"123 456 abc\0");
   assert_eq!(string.as_slice(), b"123 456 abc");
 }
+
+#[test]
+fn test_static_cstr_macro_fmt() {
+  let string = static_cstr!("123 {} {}"; 12, 456, "abc");
+  assert_eq!(string.as_slice_with_nul(), b"123 456 abc\0");
+  assert_eq!(string.as_slice(), b"123 456 abc");
+}
+

@@ -1,11 +1,13 @@
 use super::common::{
-  common_cstr_impls, common_cstring_impls, common_str_writes_impl, common_string_writes_impl,
+  common_cstr_impls, common_cstring_impls, common_str_writes_impl, common_string_writes_impl, common_staticcstr_impls, common_staticstr_writes_impl,
 };
 common_cstr_impls!(U32CStr, u32, U32CString, DisplayU32CStr);
+common_staticcstr_impls!(StaticU32CStr, u32, U32CString, DisplayU32CStr);
 common_cstring_impls!(U32CString, u32, U32CStr, DisplayU32CStr);
 
 common_str_writes_impl!(U32CStr, length_as_u32);
 common_string_writes_impl!(U32CString, length_as_u32);
+common_staticstr_writes_impl!(StaticU32CStr<CAPACITY>, length_as_u32);
 
 #[cfg(not(feature = "no_std"))]
 impl super::writes::io::Write32 for &mut U32CStr {

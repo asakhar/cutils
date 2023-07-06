@@ -1,11 +1,14 @@
 use super::common::{
-  common_cstr_impls, common_cstring_impls, common_str_writes_impl, common_string_writes_impl,
+  common_cstr_impls, common_cstring_impls, common_staticcstr_impls, common_staticstr_writes_impl,
+  common_str_writes_impl, common_string_writes_impl,
 };
 common_cstr_impls!(U16CStr, u16, U16CString, DisplayU16CStr);
+common_staticcstr_impls!(StaticU16CStr, u16, U16CString, DisplayU16CStr);
 common_cstring_impls!(U16CString, u16, U16CStr, DisplayU16CStr);
 
 common_str_writes_impl!(U16CStr, length_as_u16);
 common_string_writes_impl!(U16CString, length_as_u16);
+common_staticstr_writes_impl!(StaticU16CStr<CAPACITY>, length_as_u16);
 
 #[cfg(not(feature = "no_std"))]
 impl super::writes::io::Write16 for &mut U16CStr {
@@ -71,7 +74,7 @@ impl super::writes::fmt::Write16 for U16CString {
 
 #[cfg(test)]
 mod tests {
-  use crate::{strings::io::Write16};
+  use crate::strings::io::Write16;
 
   use super::{U16CStr, U16CString};
 

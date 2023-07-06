@@ -1,6 +1,7 @@
-use super::common::{common_cstr_impls, common_cstring_impls};
+use super::common::{common_cstr_impls, common_cstring_impls, common_staticcstr_impls};
 
 common_cstr_impls!(U8CStr, u8, U8CString, DisplayU8CStr);
+common_staticcstr_impls!(StaticU8CStr, u8, U8CString, DisplayU8CStr);
 common_cstring_impls!(U8CString, u8, U8CStr, DisplayU8CStr);
 pub type CStr = U8CStr;
 pub type CString = U8CString;
@@ -14,6 +15,23 @@ impl std::io::Write for &mut U8CStr {
     self.0[written] = 0;
     *self = unsafe { std::mem::transmute(&mut self.0[written..]) };
     Ok(written)
+  }
+
+  fn flush(&mut self) -> std::io::Result<()> {
+    Ok(())
+  }
+}
+
+#[cfg(not(feature = "no_std"))]
+impl<const CAPACITY: usize> std::io::Write for StaticU8CStr<CAPACITY> {
+  fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+    if buf.is_empty() {
+      return Ok(0);
+    }
+    let len = self.len_usize();
+    let mut slice = &mut self.0[len..CAPACITY-1];
+    let len = slice.write(buf)?;
+    Ok(len)
   }
 
   fn flush(&mut self) -> std::io::Result<()> {

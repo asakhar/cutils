@@ -1,3 +1,182 @@
+macro_rules! common_staticcstr_impls {
+  ($name:ident, $type:ty, $into:ty, $display:ident) => {
+    #[repr(transparent)]
+    pub struct $name<const CAPACITY: usize>([$type; CAPACITY]);
+    impl<const CAPACITY: usize> $crate::strings::CStrCharType for $name<CAPACITY> {
+      type Char = $type;
+    }
+    impl<const CAPACITY: usize> $name<CAPACITY> {
+      pub const CAPACITY: usize = CAPACITY;
+      pub const CAPACITY_DWORD: u32 = CAPACITY as u32;
+
+      pub fn zeroed() -> Self {
+        Self([0 as $type; CAPACITY])
+      }
+
+      // Waiting for https://github.com/rust-lang/rust/issues/8995 to be stabilized
+      // pub type Char = $type;
+      // For now working around using trait
+      pub const fn len_usize(&self) -> usize {
+        let mut items = self.0.as_slice();
+        let mut i = 0;
+        while let Some(item) = items.first() {
+          if *item == 0 {
+            return i;
+          }
+          items = match items {
+            [_, rest @ ..] => rest,
+            [] => &[],
+          };
+          i += 1
+        }
+        panic!("static string was in invalid state")
+      }
+      pub const fn is_empty(&self) -> bool {
+        self.len_usize() == 0
+      }
+      pub const fn len_dword(&self) -> u32 {
+        self.len_usize() as u32
+      }
+      pub fn len<T: TryFrom<usize> + Default>(&self) -> T {
+        self.len_usize().try_into().unwrap_or_default()
+      }
+      pub const fn len_with_nul_usize(&self) -> usize {
+        self.len_usize() + 1
+      }
+      pub const fn len_with_nul_dword(&self) -> u32 {
+        self.len_dword() + 1
+      }
+      pub fn len_with_nul<T: TryFrom<usize> + Default>(&self) -> T {
+        (self.len_usize() + 1).try_into().unwrap_or_default()
+      }
+      pub fn capacity<T: TryFrom<usize> + Default>(&self) -> T {
+        Self::CAPACITY.try_into().unwrap_or_default()
+      }
+      pub const fn as_slice(&self) -> &[$type] {
+        // Const implementation of: "&self.0[0..self.len_usize()]""
+        unsafe { core::slice::from_raw_parts(self.0.as_ptr(), self.len_usize()) }
+      }
+      pub fn as_mut_slice(&mut self) -> &mut [$type] {
+        let len = self.len_usize();
+        &mut self.0[0..len]
+      }
+      pub const fn as_slice_with_nul(&self) -> &[$type] {
+        // Const implementation of: "&self.0[0..self.len_with_nul_usize()]"
+        unsafe { core::slice::from_raw_parts(self.0.as_ptr(), self.len_with_nul_usize()) }
+      }
+      pub unsafe fn as_mut_slice_with_nul(&mut self) -> &mut [$type] {
+        let len = self.len_with_nul_usize();
+        &mut self.0[0..len]
+      }
+      pub const fn as_slice_full(&self) -> &[$type; CAPACITY] {
+        &self.0
+      }
+      pub unsafe fn as_mut_slice_full(&mut self) -> &mut [$type; CAPACITY] {
+        &mut self.0
+      }
+      pub const fn as_ptr(&self) -> *const $type {
+        self.0.as_ptr()
+      }
+      pub fn as_mut_ptr(&mut self) -> *mut $type {
+        self.0.as_mut_ptr()
+      }
+      pub const unsafe fn as_mut_ptr_bypass(&self) -> *mut $type {
+        self.0.as_ptr() as *mut _
+      }
+      pub unsafe fn from_slice_unchecked(data: &[$type]) -> Self {
+        let mut array = [0 as $type; CAPACITY];
+        let slice = core::slice::from_raw_parts_mut(array.as_mut_ptr(), data.len());
+        slice.copy_from_slice(data);
+        Self(array)
+      }
+      pub unsafe fn from_ptr(data: *const $type) -> Result<Self, $crate::strings::StrError> {
+        let mut inf_buf = core::slice::from_raw_parts(data, CAPACITY);
+        // Const implementation of: "let len = inf_buf.iter().take_while(|c| **c != 0).count();"
+        // -----
+        let mut len = 0;
+        while let Some(item) = inf_buf.first() {
+          if *item == 0 {
+            break;
+          }
+          inf_buf = match inf_buf {
+            [_, rest @ ..] => rest,
+            [] => return Err($crate::strings::StrError::NulNotFound),
+          };
+          len += 1;
+        }
+        // -----
+        let buf = core::slice::from_raw_parts(data, len + 1);
+        let mut array = [0 as $type; CAPACITY];
+        let slice = core::slice::from_raw_parts_mut(array.as_mut_ptr(), len + 1);
+        slice.copy_from_slice(buf);
+        Ok(Self(array))
+      }
+      pub unsafe fn from_ptr_unchecked(data: *const $type, capacity: usize) -> Self {
+        let buf = core::slice::from_raw_parts(data, capacity);
+        let mut array = [0 as $type; CAPACITY];
+        let slice = core::slice::from_raw_parts_mut(array.as_mut_ptr(), capacity);
+        slice.copy_from_slice(buf);
+        Self(array)
+      }
+      pub unsafe fn from_ptr_n(
+        data: *const $type,
+        mut max_len: usize,
+      ) -> Result<Self, $crate::strings::StrError> {
+        max_len = core::cmp::min(max_len, CAPACITY);
+        let inf_buf = core::slice::from_raw_parts(data, max_len);
+        let len = inf_buf.iter().take_while(|c| **c != 0).count();
+        if len == max_len {
+          Err($crate::strings::StrError::NulNotFound)
+        } else {
+          let buf = core::slice::from_raw_parts(data, len + 1);
+          let mut array = [0 as $type; CAPACITY];
+          let slice = core::slice::from_raw_parts_mut(array.as_mut_ptr(), len + 1);
+          slice.copy_from_slice(buf);
+          Ok(Self(array))
+        }
+      }
+      pub fn display<'a>(&'a self) -> $display<'a> {
+        $display(&self.0[0..self.len_usize()])
+      }
+      pub fn try_from_slice(value: &[$type]) -> Result<Self, $crate::strings::StrError> {
+        let len = value.iter().take_while(|c| **c != 0).count();
+        if len == value.len() || len >= CAPACITY {
+          Err($crate::strings::StrError::NulNotFound)
+        } else {
+          Ok(unsafe { Self::from_slice_unchecked(value) })
+        }
+      }
+    }
+    impl<const CAPACITY: usize> TryFrom<&[$type]> for $name<CAPACITY> {
+      type Error = $crate::strings::StrError;
+      fn try_from(value: &[$type]) -> Result<Self, Self::Error> {
+        Self::try_from_slice(value)
+      }
+    }
+    impl<const CAPACITY: usize, const N: usize> TryFrom<&[$type; N]> for $name<CAPACITY> {
+      type Error = $crate::strings::StrError;
+      fn try_from(value: &[$type; N]) -> Result<Self, $crate::strings::StrError> {
+        Self::try_from_slice(value)
+      }
+    }
+    impl<const CAPACITY: usize> From<$name<CAPACITY>> for $into {
+      fn from(value: $name<CAPACITY>) -> Self {
+        Self::from(&value.0)
+      }
+    }
+    impl<const CAPACITY: usize> AsRef<$name<CAPACITY>> for &$name<CAPACITY> {
+      fn as_ref(&self) -> &$name<CAPACITY> {
+        self
+      }
+    }
+    impl<const CAPACITY: usize> AsMut<$name<CAPACITY>> for &mut $name<CAPACITY> {
+      fn as_mut(&mut self) -> &mut $name<CAPACITY> {
+        self
+      }
+    }
+  };
+}
+
 macro_rules! common_cstr_impls {
   ($name:ident, $type:ty, $into:ty, $display:ident) => {
     #[repr(transparent)]
@@ -19,12 +198,6 @@ macro_rules! common_cstr_impls {
       // Waiting for https://github.com/rust-lang/rust/issues/8995 to be stabilized
       // pub type Char = $type;
       // For now working around using trait
-      pub const fn len(&self) -> u32 {
-        self.len_usize() as u32
-      }
-      pub const fn is_empty(&self) -> bool {
-        self.len_usize() == 0
-      }
       pub const fn len_usize(&self) -> usize {
         let mut items = &self.0;
         let mut i = 0;
@@ -40,11 +213,23 @@ macro_rules! common_cstr_impls {
         }
         unreachable!()
       }
-      pub const fn len_with_nul(&self) -> u32 {
-        self.len() + 1
+      pub const fn len_dword(&self) -> u32 {
+        self.len_usize() as u32
+      }
+      pub fn len<T: TryFrom<usize> + Default>(&self) -> T {
+        self.len_usize().try_into().unwrap_or_default()
+      }
+      pub const fn is_empty(&self) -> bool {
+        self.len_usize() == 0
       }
       pub const fn len_with_nul_usize(&self) -> usize {
         self.len_usize() + 1
+      }
+      pub const fn len_with_nul_dword(&self) -> u32 {
+        self.len_dword() + 1
+      }
+      pub fn len_with_nul<T: TryFrom<usize> + Default>(&self) -> T {
+        (self.len_usize() + 1).try_into().unwrap_or_default()
       }
       pub const fn capacity(&self) -> u32 {
         self.capacity_usize() as u32
@@ -171,7 +356,9 @@ macro_rules! common_cstr_impls {
           Ok(unsafe { core::mem::transmute(value) })
         }
       }
-      pub fn try_from_mut_slice(value: &mut [$type]) -> Result<&mut Self, $crate::strings::StrError> {
+      pub fn try_from_mut_slice(
+        value: &mut [$type],
+      ) -> Result<&mut Self, $crate::strings::StrError> {
         if value.iter().take_while(|c| **c != 0).count() == value.len() {
           Err($crate::strings::StrError::NulNotFound)
         } else {
@@ -273,52 +460,62 @@ macro_rules! common_cstring_impls {
         inner.1 = len;
         len
       }
-      pub fn reserve_usize(&mut self, additional: usize) {
+      pub fn reserve<T: TryInto<usize>>(&mut self, total: T) {
         let inner = self.inner();
         let cap = inner.0.capacity();
-        inner.0.resize(cap, 0);
-        let len = inner.0.iter().take_while(|c| **c != 0).count();
-        let new_len = len + additional as usize;
-        inner.0.resize(new_len, 0);
+        inner
+          .0
+          .resize(std::cmp::max(total.try_into().unwrap_or(0), cap), 0);
         let cap = inner.0.capacity();
         inner.0.resize(cap, 0);
-        inner.1 = new_len;
       }
-      pub fn reserve(&mut self, additional: u32) {
-        self.reserve_usize(additional as usize)
-      }
-      pub fn len(&self) -> u32 {
+      pub fn len_dword(&self) -> u32 {
         self.len_usize() as u32
       }
       pub fn len_usize(&self) -> usize {
         self.refresh()
       }
+      pub fn len<T: TryFrom<usize> + Default>(&self) -> T {
+        self.len_usize().try_into().unwrap_or_default()
+      }
       pub fn is_empty(&self) -> bool {
         self.len_usize() == 0
-      }
-      pub fn len_with_nul(&self) -> u32 {
-        self.len() + 1
       }
       pub fn len_with_nul_usize(&self) -> usize {
         self.len_usize() + 1
       }
-      pub fn len_hint(&self) -> u32 {
+      pub fn len_with_nul_dword(&self) -> u32 {
+        self.len_dword() + 1
+      }
+      pub fn len_with_nul<T: TryFrom<usize> + Default>(&self) -> T {
+        (self.len_usize() + 1).try_into().unwrap_or_default()
+      }
+      pub fn len_hint_dword(&self) -> u32 {
         self.len_hint_usize() as u32
       }
       pub fn len_hint_usize(&self) -> usize {
         self.inner().1
       }
-      pub fn len_hint_with_nul(&self) -> u32 {
-        self.len_hint() + 1
+      pub fn len_hint<T: TryFrom<usize> + Default>(&self) -> T {
+        self.inner().1.try_into().unwrap_or_default()
       }
       pub fn len_hint_with_nul_usize(&self) -> usize {
         self.len_hint_usize() + 1
       }
-      pub fn capacity(&self) -> u32 {
+      pub fn len_hint_with_nul_dword(&self) -> u32 {
+        self.len_hint_dword() + 1
+      }
+      pub fn len_hint_with_nul<T: TryFrom<usize> + Default>(&self) -> T {
+        (self.inner().1 + 1).try_into().unwrap_or_default()
+      }
+      pub fn capacity_dword(&self) -> u32 {
         self.capacity_usize() as u32
       }
       pub fn capacity_usize(&self) -> usize {
-        self.inner().0.len() - 1
+        self.inner().0.len()
+      }
+      pub fn capacity<T: TryFrom<usize> + Default>(&self) -> T {
+        self.inner().0.len().try_into().unwrap_or_default()
       }
       pub fn as_slice(&self) -> &[$type] {
         let len = self.len_usize();
@@ -478,6 +675,80 @@ macro_rules! common_cstring_impls {
   };
 }
 
+macro_rules! common_staticstr_writes_impl {
+  ($name:ty, $fn:ident) => {
+    impl<const CAPACITY: usize> core::fmt::Write for $name {
+      fn write_str(&mut self, s: &str) -> core::fmt::Result {
+        let buf = s.as_bytes();
+        let prev_len = self.len_usize();
+        let valid_bytes = if let Err(err) = $crate::strings::internals::check_is_valid_utf8(buf) {
+          err.valid_up_to()
+        } else {
+          buf.len()
+        };
+        let mut buf = &buf[0..valid_bytes];
+        if buf.is_empty() {
+          return Ok(());
+        }
+        use $crate::ignore::ResultIgnoreExt;
+        let chars_len = unsafe { $crate::strings::internals::$fn(buf) }.ignore();
+        if chars_len > CAPACITY - prev_len - 1 {
+          return Err(core::fmt::Error);
+        }
+        let buffer = &mut self.0[prev_len..prev_len + chars_len];
+        for i in 0..chars_len {
+          let (cp, rest) = unsafe { $crate::strings::internals::next_code_point(buf).unwrap() };
+          if cp > <$name as crate::strings::CStrCharType>::Char::MAX as u32 {
+            return Err(core::fmt::Error);
+          }
+          buffer[i] = cp as <$name as crate::strings::CStrCharType>::Char;
+          buf = rest;
+        }
+        self.0[CAPACITY - 1] = 0;
+        Ok(())
+      }
+    }
+    #[cfg(not(feature = "no_std"))]
+    impl<const CAPACITY: usize> std::io::Write for $name {
+      fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let prev_len = self.len_usize();
+        let valid_bytes = if let Err(err) = $crate::strings::internals::check_is_valid_utf8(buf) {
+          err.valid_up_to()
+        } else {
+          buf.len()
+        };
+        let mut buf = &buf[0..valid_bytes];
+        if buf.is_empty() {
+          return Ok(0);
+        }
+        use $crate::ignore::ResultIgnoreExt;
+        let chars_len = unsafe { $crate::strings::internals::$fn(buf) }.ignore();
+        let written = core::cmp::min(chars_len, Self::CAPACITY - prev_len - 1);
+        let buffer = &mut self.0[prev_len..prev_len + written];
+        let mut written_len = 0;
+        for i in 0..written {
+          let (cp, rest) = unsafe { $crate::strings::internals::next_code_point(buf).unwrap() };
+          if cp > <$name as crate::strings::CStrCharType>::Char::MAX as u32 {
+            return Err(std::io::Error::new(
+              std::io::ErrorKind::InvalidData,
+              "input buffer contained character that is unrepresentable in target encoding",
+            ));
+          }
+          written_len += unsafe { char::from_u32_unchecked(cp) }.len_utf8();
+          buffer[i] = cp as <$name as crate::strings::CStrCharType>::Char;
+          buf = rest;
+        }
+        self.0[Self::CAPACITY - 1] = 0;
+        Ok(written_len)
+      }
+
+      fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+      }
+    }
+  };
+}
+
 macro_rules! common_str_writes_impl {
   ($name:ty, $fn:ident) => {
     impl core::fmt::Write for &mut $name {
@@ -499,6 +770,9 @@ macro_rules! common_str_writes_impl {
         type CharType = <$name as $crate::strings::CStrCharType>::Char;
         for i in 0..written {
           let (cp, rest) = unsafe { $crate::strings::internals::next_code_point(buf).unwrap() };
+          if cp > CharType::MAX as u32 {
+            return Err(core::fmt::Error);
+          }
           self.0[i] = cp as CharType;
           buf = rest;
         }
@@ -522,6 +796,12 @@ macro_rules! common_str_writes_impl {
         type CharType = <$name as $crate::strings::CStrCharType>::Char;
         for i in 0..written {
           let (cp, rest) = unsafe { $crate::strings::internals::next_code_point(buf).unwrap() };
+          if cp > CharType::MAX as u32 {
+            return Err(std::io::Error::new(
+              std::io::ErrorKind::InvalidData,
+              "input buffer contained character that is unrepresentable in target encoding",
+            ));
+          }
           self.0[i] = cp as CharType;
           buf = rest;
         }
@@ -559,6 +839,9 @@ macro_rules! common_string_writes_impl {
         type CharType = <$name as $crate::strings::CStrCharType>::Char;
         for i in 0..chars_len {
           let (cp, rest) = unsafe { $crate::strings::internals::next_code_point(buf).unwrap() };
+          if cp > CharType::MAX as u32 {
+            return Err(core::fmt::Error);
+          }
           buffer[i] = cp as CharType;
           buf = rest;
         }
@@ -588,6 +871,12 @@ macro_rules! common_string_writes_impl {
         type CharType = <$name as $crate::strings::CStrCharType>::Char;
         for i in 0..chars_len {
           let (cp, rest) = unsafe { $crate::strings::internals::next_code_point(buf).unwrap() };
+          if cp > CharType::MAX as u32 {
+            return Err(std::io::Error::new(
+              std::io::ErrorKind::InvalidData,
+              "input buffer contained character that is unrepresentable in target encoding",
+            ));
+          }
           buffer[i] = cp as CharType;
           buf = rest;
         }
@@ -605,5 +894,7 @@ macro_rules! common_string_writes_impl {
 
 pub(super) use common_cstr_impls;
 pub(super) use common_cstring_impls;
+pub(super) use common_staticcstr_impls;
+pub(super) use common_staticstr_writes_impl;
 pub(super) use common_str_writes_impl;
 pub(super) use common_string_writes_impl;

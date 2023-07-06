@@ -2,6 +2,7 @@ mod common;
 mod cstr;
 mod str_macro;
 mod string_macro;
+mod static_str_macro;
 mod u16cstr;
 mod u32cstr;
 mod writes;
@@ -40,6 +41,16 @@ pub type WideCString = U32CString;
 /// `wchar_t` size on platform.
 #[cfg(windows)]
 pub type WideCString = U16CString;
+
+/// Alias for [`StaticU16CStr`] or [`StaticU32CStr`] depending on platform. Intended to match typical C
+/// `wchar_t` size on platform.
+#[cfg(not(windows))]
+pub type StaticWideCStr<const CAPACITY: usize> = StaticU32CStr<CAPACITY>;
+
+/// Alias for [`StaticU16CStr`] or [`StaticU32CStr`] depending on platform. Intended to match typical C
+/// `wchar_t` size on platform.
+#[cfg(windows)]
+pub type StaticWideCStr<const CAPACITY: usize> = StaticU16CStr<CAPACITY>;
 
 impl WideCStr {
   pub fn to_os_string(&self) -> OsString {

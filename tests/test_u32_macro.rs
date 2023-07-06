@@ -51,3 +51,10 @@ fn test_u32cstring_macro_fmt() {
   assert_eq!(string.as_slice_with_nul(), as_u32(b"123 456\0"));
   assert_eq!(string.as_slice(), as_u32(b"123 456"));
 }
+
+#[test]
+fn test_static_u32cstr_macro_fmt() {
+  let string = static_u32cstr!("123 {} {}"; 12, 456, "abc");
+  assert_eq!(string.as_slice_with_nul(), as_u32(b"123 456 abc\0"));
+  assert_eq!(string.as_slice(), as_u32(b"123 456 abc"));
+}
