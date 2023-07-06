@@ -1,5 +1,5 @@
 macro_rules! common_staticcstr_impls {
-  ($name:ident, $type:ty, $into:ty, $display:ident) => {
+  ($name:ident, $type:ty, $into:ty, $asref:ty, $display:ident) => {
     #[repr(transparent)]
     pub struct $name<const CAPACITY: usize>([$type; CAPACITY]);
     impl<const CAPACITY: usize> $crate::strings::CStrCharType for $name<CAPACITY> {
@@ -177,6 +177,40 @@ macro_rules! common_staticcstr_impls {
     impl<const CAPACITY: usize> AsMut<$name<CAPACITY>> for &mut $name<CAPACITY> {
       fn as_mut(&mut self) -> &mut $name<CAPACITY> {
         self
+      }
+    }
+    impl<const CAPACITY: usize> AsRef<$asref> for $name<CAPACITY> {
+      fn as_ref(&self) -> &$asref {
+        unsafe { <$asref>::from_slice_unchecked(&self.0) }
+      }
+    }
+    impl<const CAPACITY: usize> AsMut<$asref> for $name<CAPACITY> {
+      fn as_mut(&mut self) -> &mut $asref {
+        unsafe { <$asref>::from_mut_slice_unchecked(&mut self.0) }
+      }
+    }
+    impl<const CAPACITY: usize> core::borrow::Borrow<$asref> for $name<CAPACITY> {
+      fn borrow(&self) -> &$asref {
+        self.as_ref()
+      }
+    }
+    impl<const CAPACITY: usize> core::borrow::BorrowMut<$asref> for $name<CAPACITY> {
+      fn borrow_mut(&mut self) -> &mut $asref {
+        self.as_mut()
+      }
+    }
+    impl<const CAPACITY: usize> core::ops::Deref for $name<CAPACITY> {
+      type Target = $asref;
+
+      #[inline]
+      fn deref(&self) -> &$asref {
+        self.as_ref()
+      }
+    }
+    impl<const CAPACITY: usize> core::ops::DerefMut for $name<CAPACITY> {
+      #[inline]
+      fn deref_mut(&mut self) -> &mut Self::Target {
+        self.as_mut()
       }
     }
   };

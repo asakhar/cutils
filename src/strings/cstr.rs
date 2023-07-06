@@ -1,7 +1,7 @@
 use super::common::{common_cstr_impls, common_cstring_impls, common_staticcstr_impls};
 
 common_cstr_impls!(U8CStr, u8, U8CString, DisplayU8CStr);
-common_staticcstr_impls!(StaticU8CStr, u8, U8CString, DisplayU8CStr);
+common_staticcstr_impls!(StaticU8CStr, u8, U8CString, U8CStr, DisplayU8CStr);
 common_cstring_impls!(U8CString, u8, U8CStr, DisplayU8CStr);
 pub type CStr = U8CStr;
 pub type CString = U8CString;

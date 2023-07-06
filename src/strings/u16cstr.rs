@@ -3,7 +3,7 @@ use super::common::{
   common_str_writes_impl, common_string_writes_impl,
 };
 common_cstr_impls!(U16CStr, u16, U16CString, DisplayU16CStr);
-common_staticcstr_impls!(StaticU16CStr, u16, U16CString, DisplayU16CStr);
+common_staticcstr_impls!(StaticU16CStr, u16, U16CString, U16CStr, DisplayU16CStr);
 common_cstring_impls!(U16CString, u16, U16CStr, DisplayU16CStr);
 
 common_str_writes_impl!(U16CStr, length_as_u16);
