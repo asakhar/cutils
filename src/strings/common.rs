@@ -40,6 +40,15 @@ macro_rules! common_staticcstr_impls {
       pub fn len<T: TryFrom<usize> + Default>(&self) -> T {
         self.len_usize().try_into().unwrap_or_default()
       }
+      pub fn sizeof_usize(&self) -> usize {
+        (self.len_with_nul_usize() * core::mem::size_of::<$type>())
+      } 
+      pub fn sizeof_dword(&self) -> u32 {
+        (self.len_with_nul_dword() * core::mem::size_of::<$type>() as u32)
+      } 
+      pub fn sizeof<T: TryFrom<usize> + Default>(&self) -> T {
+        (self.len_with_nul_usize() * core::mem::size_of::<$type>()).try_into().unwrap_or_default()
+      } 
       pub const fn len_with_nul_usize(&self) -> usize {
         self.len_usize() + 1
       }
@@ -270,6 +279,15 @@ macro_rules! common_cstr_impls {
       pub fn len_with_nul<T: TryFrom<usize> + Default>(&self) -> T {
         (self.len_usize() + 1).try_into().unwrap_or_default()
       }
+      pub fn sizeof_usize(&self) -> usize {
+        (self.len_with_nul_usize() * core::mem::size_of::<$type>())
+      } 
+      pub fn sizeof_dword(&self) -> u32 {
+        (self.len_with_nul_dword() * core::mem::size_of::<$type>() as u32)
+      } 
+      pub fn sizeof<T: TryFrom<usize> + Default>(&self) -> T {
+        (self.len_with_nul_usize() * core::mem::size_of::<$type>()).try_into().unwrap_or_default()
+      } 
       pub const fn capacity(&self) -> u32 {
         self.capacity_usize() as u32
       }
@@ -547,6 +565,15 @@ macro_rules! common_cstring_impls {
       pub fn len_hint_with_nul<T: TryFrom<usize> + Default>(&self) -> T {
         (self.inner().1 + 1).try_into().unwrap_or_default()
       }
+      pub fn sizeof_usize(&self) -> usize {
+        (self.len_with_nul_usize() * core::mem::size_of::<$type>())
+      } 
+      pub fn sizeof_dword(&self) -> u32 {
+        (self.len_with_nul_dword() * core::mem::size_of::<$type>() as u32)
+      } 
+      pub fn sizeof<T: TryFrom<usize> + Default>(&self) -> T {
+        (self.len_with_nul_usize() * core::mem::size_of::<$type>()).try_into().unwrap_or_default()
+      } 
       pub fn capacity_dword(&self) -> u32 {
         self.capacity_usize() as u32
       }
