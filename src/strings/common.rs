@@ -147,6 +147,11 @@ macro_rules! common_staticcstr_impls {
         }
       }
     }
+    impl<const CAPACITY: usize> Default for $name<CAPACITY> {
+      fn default() -> Self {
+        Self::zeroed()
+      }
+    }
     impl<const CAPACITY: usize> TryFrom<&[$type]> for $name<CAPACITY> {
       type Error = $crate::strings::StrError;
       fn try_from(value: &[$type]) -> Result<Self, Self::Error> {
