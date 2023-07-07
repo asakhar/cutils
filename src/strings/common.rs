@@ -112,7 +112,7 @@ macro_rules! common_staticcstr_impls {
         unsafe { core::slice::from_raw_parts(self.0.as_ptr(), self.len_with_nul_usize()) }
       }
       /// Returns the contents of the static str until nul-terminator (and including it) as mutable slice
-      /// SAFETY: caller should not mutate the extra nul-termianator at position `CAPACITY + 1` 
+      /// SAFETY: caller should not mutate the extra nul-termianator at position `CAPACITY + 1`
       pub unsafe fn as_mut_slice_with_nul(&mut self) -> &mut [$type] {
         let len = self.len_with_nul_usize();
         core::slice::from_raw_parts_mut(self.0.as_mut_ptr(), len)
@@ -171,7 +171,10 @@ macro_rules! common_staticcstr_impls {
           unsafe { <$asref>::from_slice_unchecked(&self.1) }
         } else {
           unsafe {
-            <$asref>::from_ptr_unchecked(self.0.as_ptr().add(range.start), CAPACITY + 1 - range.start)
+            <$asref>::from_ptr_unchecked(
+              self.0.as_ptr().add(range.start),
+              CAPACITY + 1 - range.start,
+            )
           }
         }
       }
@@ -360,12 +363,12 @@ macro_rules! common_staticcstr_impls {
     }
     impl<const CAPACITY: usize> AsRef<$asref> for $name<CAPACITY> {
       fn as_ref(&self) -> &$asref {
-        unsafe { <$asref>::from_ptr_unchecked(self.0.as_ptr(), CAPACITY+1) }
+        unsafe { <$asref>::from_ptr_unchecked(self.0.as_ptr(), CAPACITY + 1) }
       }
     }
     impl<const CAPACITY: usize> AsMut<$asref> for $name<CAPACITY> {
       fn as_mut(&mut self) -> &mut $asref {
-        unsafe { <$asref>::from_mut_ptr_unchecked(self.0.as_mut_ptr(), CAPACITY+1) }
+        unsafe { <$asref>::from_mut_ptr_unchecked(self.0.as_mut_ptr(), CAPACITY + 1) }
       }
     }
     impl<const CAPACITY: usize> core::borrow::Borrow<$asref> for $name<CAPACITY> {
@@ -465,8 +468,16 @@ macro_rules! common_staticcstr_impls {
     }
     impl<const CAP1: usize, const CAP2: usize> core::cmp::PartialEq<$name<CAP1>> for $name<CAP2> {
       fn eq(&self, rhs: &$name<CAP1>) -> bool {
-        let first = self.iter().take_while(|a|**a!=0).map(Some).chain(core::iter::once(None));
-        let second = rhs.iter().take_while(|a|**a!=0).map(Some).chain(core::iter::once(None));
+        let first = self
+          .iter()
+          .take_while(|a| **a != 0)
+          .map(Some)
+          .chain(core::iter::once(None));
+        let second = rhs
+          .iter()
+          .take_while(|a| **a != 0)
+          .map(Some)
+          .chain(core::iter::once(None));
         match first.zip(second).take_while(|(a, b)| (a == b)).last() {
           Some((a, b)) if a == b => true,
           _ => false,
@@ -570,7 +581,7 @@ macro_rules! common_cstr_impls {
       }
       /// Returns the total length of underlying slice (excluding nul-terminator)
       pub const fn capacity_usize(&self) -> usize {
-        self.0.len() - 1 
+        self.0.len() - 1
       }
       /// Returns the total length of underlying slice (excluding nul-terminator)
       /// NOTE: this method returns value as DWORD
@@ -603,7 +614,7 @@ macro_rules! common_cstr_impls {
         let len = self.len_with_nul_usize();
         self.0.get_unchecked_mut(0..len)
       }
-      /// Returns a reference to the full underlying slice 
+      /// Returns a reference to the full underlying slice
       pub const fn as_slice_full(&self) -> &[$type] {
         &self.0
       }
@@ -723,7 +734,7 @@ macro_rules! common_cstr_impls {
         core::mem::transmute(buf)
       }
       /// Constructs an instance of immutable cstr given a pointer to a constant string and it's length
-      /// SAFETY: `data` should point to a valid memory where 
+      /// SAFETY: `data` should point to a valid memory where
       /// cstring is stored
       /// PRECOND: *(`data`.add(`capacity`)) == 0, i.e. `data+capacity` should point to the nul-terminator
       /// NOTE: lifetime of the returned value is inferred from context
@@ -732,7 +743,7 @@ macro_rules! common_cstr_impls {
         core::mem::transmute(buf)
       }
       /// Constructs an instance of mutable cstr given a pointer to a mutable string and it's length
-      /// SAFETY: `data` should point to a valid memory where 
+      /// SAFETY: `data` should point to a valid memory where
       /// cstring is stored
       /// PRECOND: *(`data`.add(`capacity`)) == 0, i.e. `data+capacity` should point to the nul-terminator
       /// NOTE: lifetime of the returned value is inferred from context
@@ -944,7 +955,7 @@ macro_rules! common_cstr_impls {
 
 macro_rules! common_cstring_impls {
   ($name:ident, $type:ty, $asref:ty, $display:ident, $iter:ident) => {
-    pub struct $name(core::cell::UnsafeCell<(Vec<$type>, usize)>);
+    pub struct $name(Vec<$type>);
     unsafe impl Send for $name {}
     unsafe impl Sync for $name {}
     impl $crate::strings::CStrCharType for $name {
@@ -954,38 +965,24 @@ macro_rules! common_cstring_impls {
       pub fn new() -> Self {
         let mut buf = vec![0 as $type];
         buf.resize(buf.capacity(), 0);
-        Self(core::cell::UnsafeCell::new((buf, 0)))
+        Self(buf)
       }
       pub fn with_capacity(cap: usize) -> Self {
         let mut buf = vec![0 as $type; cap + 1];
         buf.resize(buf.capacity(), 0);
-        Self(core::cell::UnsafeCell::new((buf, 0)))
-      }
-      fn inner(&self) -> &mut (Vec<$type>, usize) {
-        unsafe { &mut *self.0.get() }
-      }
-      fn refresh(&self) -> usize {
-        let inner = self.inner();
-        let cap = inner.0.capacity();
-        inner.0.resize(cap, 0);
-        let len = inner.0.iter().take_while(|c| **c != 0).count();
-        inner.1 = len;
-        len
+        Self(buf)
       }
       pub fn reserve<T: TryInto<usize>>(&mut self, total: T) {
-        let inner = self.inner();
-        let cap = inner.0.capacity();
-        inner
-          .0
-          .resize(std::cmp::max(total.try_into().unwrap_or(0), cap), 0);
-        let cap = inner.0.capacity();
-        inner.0.resize(cap, 0);
+        let cap = self.0.capacity();
+        self.0.resize(std::cmp::max(total.try_into().unwrap_or(0), cap), 0);
+        let cap = self.0.capacity();
+        self.0.resize(cap, 0);
+      }
+      pub fn len_usize(&self) -> usize {
+        self.0.iter().take_while(|c|**c != 0).count()
       }
       pub fn len_dword(&self) -> u32 {
         self.len_usize() as u32
-      }
-      pub fn len_usize(&self) -> usize {
-        self.refresh()
       }
       pub fn len<T: TryFrom<usize> + Default>(&self) -> T {
         self.len_usize().try_into().unwrap_or_default()
@@ -1002,24 +999,6 @@ macro_rules! common_cstring_impls {
       pub fn len_with_nul<T: TryFrom<usize> + Default>(&self) -> T {
         (self.len_usize() + 1).try_into().unwrap_or_default()
       }
-      pub fn len_hint_dword(&self) -> u32 {
-        self.len_hint_usize() as u32
-      }
-      pub fn len_hint_usize(&self) -> usize {
-        self.inner().1
-      }
-      pub fn len_hint<T: TryFrom<usize> + Default>(&self) -> T {
-        self.inner().1.try_into().unwrap_or_default()
-      }
-      pub fn len_hint_with_nul_usize(&self) -> usize {
-        self.len_hint_usize() + 1
-      }
-      pub fn len_hint_with_nul_dword(&self) -> u32 {
-        self.len_hint_dword() + 1
-      }
-      pub fn len_hint_with_nul<T: TryFrom<usize> + Default>(&self) -> T {
-        (self.inner().1 + 1).try_into().unwrap_or_default()
-      }
       pub fn sizeof_usize(&self) -> usize {
         (self.len_with_nul_usize() * core::mem::size_of::<$type>())
       }
@@ -1032,51 +1011,52 @@ macro_rules! common_cstring_impls {
           .unwrap_or_default()
       }
       pub fn capacity_usize(&self) -> usize {
-        self.inner().0.len() - 1
+        self.0.len() - 1
       }
       pub fn capacity_dword(&self) -> u32 {
         self.capacity_usize() as u32
       }
       pub fn capacity<T: TryFrom<usize> + Default>(&self) -> T {
-        self.inner().0.len().try_into().unwrap_or_default()
+        self.capacity_usize().try_into().unwrap_or_default()
       }
       pub fn as_slice(&self) -> &[$type] {
         let len = self.len_usize();
-        &self.inner().0[0..len]
+        &self.0[0..len]
       }
       pub unsafe fn as_mut_slice(&mut self) -> &mut [$type] {
         let len = self.len_usize();
-        &mut self.inner().0[0..len]
+        &mut self.0[0..len]
       }
       pub fn as_slice_with_nul(&self) -> &[$type] {
         let len = self.len_with_nul_usize();
-        &self.inner().0[0..len]
+        &self.0[0..len]
       }
       pub unsafe fn as_mut_slice_with_nul(&mut self) -> &mut [$type] {
         let len = self.len_with_nul_usize();
-        &mut self.inner().0[0..len]
+        &mut self.0[0..len]
       }
       pub fn as_slice_full(&self) -> &[$type] {
-        &self.inner().0
+        &self.0
       }
       pub unsafe fn as_mut_slice_full(&mut self) -> &mut [$type] {
-        &mut self.inner().0
+        let len = self.0.len() - 1;
+        &mut self.0[0..len - 1]
       }
       pub fn as_ptr(&self) -> *const $type {
-        self.inner().0.as_ptr()
+        self.0.as_ptr()
       }
       pub fn as_mut_ptr(&mut self) -> *mut $type {
-        self.inner().0.as_mut_ptr()
+        self.0.as_mut_ptr()
       }
       pub unsafe fn from_ptr(data: *const $type) -> Self {
         let inf_buf = core::slice::from_raw_parts(data, usize::MAX);
         let len = inf_buf.iter().take_while(|c| **c != 0).count();
         let buf = core::slice::from_raw_parts(data, len + 1).to_vec();
-        Self(core::cell::UnsafeCell::new((buf, len)))
+        Self(buf.to_vec())
       }
       pub unsafe fn from_ptr_unchecked(data: *const $type, len: usize, capacity: usize) -> Self {
         let buf = core::slice::from_raw_parts(data, capacity).to_vec();
-        Self(core::cell::UnsafeCell::new((buf, len)))
+        Self(buf.to_vec())
       }
       pub unsafe fn from_ptr_unchecked_calc_len(data: *const $type, capacity: usize) -> Self {
         let buf = core::slice::from_raw_parts(data, capacity).to_vec();
