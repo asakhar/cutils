@@ -863,6 +863,47 @@ macro_rules! common_cstr_impls {
         self
       }
     }
+    impl core::ops::Index<usize> for &$name {
+      type Output = $type;
+      #[inline]
+      fn index(&self, index: usize) -> &Self::Output {
+        self.get_ref(index).unwrap()
+      }
+    }
+    impl core::ops::Index<usize> for &mut $name {
+      type Output = $type;
+      #[inline]
+      fn index(&self, index: usize) -> &Self::Output {
+        self.get_ref(index).unwrap()
+      }
+    }
+    impl core::ops::IndexMut<usize> for &mut $name {
+      #[inline]
+      fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        self.get_mut(index).unwrap()
+      }
+    }
+    impl core::ops::Index<core::ops::RangeFrom<usize>> for &$name {
+      type Output = $name;
+      #[inline]
+      fn index(&self, index: core::ops::RangeFrom<usize>) -> &Self::Output {
+        self.range(index)
+      }
+    }
+    impl core::ops::Index<core::ops::RangeFrom<usize>> for &mut $name {
+      type Output = $name;
+      #[inline]
+      fn index(&self, index: core::ops::RangeFrom<usize>) -> &Self::Output {
+        self.range(index)
+      }
+    }
+    impl core::ops::IndexMut<core::ops::RangeFrom<usize>> for &mut $name
+    {
+      #[inline]
+      fn index_mut(&mut self, index: core::ops::RangeFrom<usize>) -> &mut Self::Output {
+        self.range_mut(index)
+      }
+    }
     impl<'col> core::iter::Iterator for &'col $name {
       type Item = &'col $type;
       fn next(&mut self) -> Option<<Self as Iterator>::Item> {

@@ -160,6 +160,47 @@ mod tests {
     let mut cstr: &mut U8CStr = (&mut buf).try_into().unwrap();
     assert_eq!(cstr.write(b"a").unwrap(), 0);
   }
+  #[test]
+  fn test_index() {
+    let buf = b"abc\0";
+    let cstr: StaticU8CStr<4> = buf.try_into().unwrap();
+    let cstr: &CStr = cstr.as_ref();
+    assert_eq!(cstr[0], b'a');
+    assert_eq!(cstr[1], b'b');
+    assert_eq!(cstr[2], b'c');
+    assert_eq!(cstr[3], b'\0');
+  }
+  
+  #[test]
+  fn test_index_range() {
+    let buf = b"abc\0";
+    let cstr: StaticU8CStr<4> = buf.try_into().unwrap();
+    let cstr: &CStr = cstr.as_ref();
+    let abc: &U8CStr = b"abc\0".try_into().unwrap();
+    let tmp = &cstr[0..]; 
+    assert_eq!(tmp.len_with_nul_usize(), 4);
+    assert_eq!(tmp.capacity_usize(), 4);
+    assert_eq!(tmp.len_usize(), 3);
+    assert_eq!(tmp, abc);
+    let abc: &U8CStr = b"bc\0".try_into().unwrap();
+    let tmp = &cstr[1..]; 
+    assert_eq!(tmp.len_with_nul_usize(), 3);
+    assert_eq!(tmp.capacity_usize(), 3);
+    assert_eq!(tmp.len_usize(), 2);
+    assert_eq!(tmp, abc);
+    let abc: &U8CStr = b"c\0".try_into().unwrap();
+    let tmp = &cstr[2..]; 
+    assert_eq!(tmp.len_with_nul_usize(), 2);
+    assert_eq!(tmp.capacity_usize(), 2);
+    assert_eq!(tmp.len_usize(), 1);
+    assert_eq!(tmp, abc);
+    let abc: &U8CStr = b"\0".try_into().unwrap();
+    let tmp = &cstr[3..]; 
+    assert_eq!(tmp.len_with_nul_usize(), 1);
+    assert_eq!(tmp.capacity_usize(), 1);
+    assert_eq!(tmp.len_usize(), 0);
+    assert_eq!(tmp, abc);
+  }
   
   #[test]
   fn test_static_index() {
