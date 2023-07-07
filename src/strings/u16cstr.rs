@@ -2,9 +2,9 @@ use super::common::{
   common_cstr_impls, common_cstring_impls, common_staticcstr_impls, common_staticstr_writes_impl,
   common_str_writes_impl, common_string_writes_impl,
 };
-common_cstr_impls!(U16CStr, u16, U16CString, DisplayU16CStr);
-common_staticcstr_impls!(StaticU16CStr, u16, U16CString, U16CStr, DisplayU16CStr);
-common_cstring_impls!(U16CString, u16, U16CStr, DisplayU16CStr);
+common_cstr_impls!(U16CStr, u16, U16CString, DisplayU16CStr, U16CStrIter, StaticU16CStr);
+common_staticcstr_impls!(StaticU16CStr, u16, U16CString, U16CStr, DisplayU16CStr, StaticU16CStrIntoIter);
+common_cstring_impls!(U16CString, u16, U16CStr, DisplayU16CStr, U16CStringIter);
 
 common_str_writes_impl!(U16CStr, length_as_u16);
 common_string_writes_impl!(U16CString, length_as_u16);
@@ -13,18 +13,12 @@ common_staticstr_writes_impl!(StaticU16CStr<CAPACITY>, length_as_u16);
 #[cfg(not(feature = "no_std"))]
 impl super::writes::io::Write16 for &mut U16CStr {
   fn write16(&mut self, buf: &[u16]) -> std::io::Result<usize> {
-    let writable = self.capacity_usize() - 1;
+    let writable = self.capacity_usize();
     let written = std::cmp::min(buf.len(), writable);
-    unsafe { self.as_mut_slice_full()[0..written].copy_from_slice(&buf[0..written]) };
-    unsafe { self.as_mut_slice_full()[written] = 0 };
-    let new_self = &mut unsafe { self.as_mut_slice_full() }[written..];
+    self.as_mut_slice_full()[0..written].copy_from_slice(&buf[0..written]);
+    let new_self = &mut  self.0[written..];
 
-    *self = unsafe {
-      U16CStr::from_mut_slice_unchecked(std::slice::from_raw_parts_mut(
-        new_self.as_mut_ptr(),
-        new_self.len(),
-      ))
-    };
+    *self = unsafe { core::mem::transmute(new_self) };
     Ok(written)
   }
 
@@ -52,7 +46,7 @@ impl super::writes::io::Write16 for U16CString {
 
 impl super::writes::fmt::Write16 for &mut U16CStr {
   fn write16_str(&mut self, buf: &U16CStr) -> core::fmt::Result {
-    let space = unsafe { self.as_mut_slice_full() };
+    let space = self.as_mut_slice_full() ;
     if space.len() < buf.len_with_nul_usize() {
       return Err(core::fmt::Error);
     }
@@ -100,7 +94,8 @@ mod tests {
   fn writes16_cstr_fmt() {
     let mut buf = [0; 5];
     let mut str = unsafe { U16CStr::from_mut_slice_unchecked(&mut buf) };
-    str.write16_fmt(format_args!("abc{}", 1)).unwrap();
+    use std::fmt::Write;
+    str.write_fmt(format_args!("abc{}", 1)).unwrap();
     assert_eq!(str.as_slice_full(), &[0]);
     assert_eq!(buf, [b'a' as u16, b'b' as u16, b'c' as u16, b'1' as u16, 0]);
   }
@@ -115,7 +110,8 @@ mod tests {
   #[test]
   fn writes16_cstring_fmt() {
     let mut str = U16CString::new();
-    str.write16_fmt(format_args!("abc{}", 1)).unwrap();
+    use std::io::Write;
+    str.write_fmt(format_args!("abc{}", 1)).unwrap();
     assert_eq!(
       str.as_slice_with_nul(),
       &[b'a' as u16, b'b' as u16, b'c' as u16, b'1' as u16, 0]

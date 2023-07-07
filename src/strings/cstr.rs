@@ -1,8 +1,8 @@
 use super::common::{common_cstr_impls, common_cstring_impls, common_staticcstr_impls};
 
-common_cstr_impls!(U8CStr, u8, U8CString, DisplayU8CStr);
-common_staticcstr_impls!(StaticU8CStr, u8, U8CString, U8CStr, DisplayU8CStr);
-common_cstring_impls!(U8CString, u8, U8CStr, DisplayU8CStr);
+common_cstr_impls!(U8CStr, u8, U8CString, DisplayU8CStr, U8CStrIter, StaticU8CStr);
+common_staticcstr_impls!(StaticU8CStr, u8, U8CString, U8CStr, DisplayU8CStr, StaticU8CStrIter);
+common_cstring_impls!(U8CString, u8, U8CStr, DisplayU8CStr, U8CStringIter);
 pub type CStr = U8CStr;
 pub type CString = U8CString;
 
@@ -86,7 +86,7 @@ impl From<&mut core::ffi::CStr> for &mut U8CStr {
 
 #[cfg(test)]
 mod tests {
-  use super::U8CStr;
+  use super::*;
   use std::io::Write;
   #[test]
   fn test_display() {
@@ -100,40 +100,40 @@ mod tests {
     let mut buf = *b"123\0";
     let mut cstr: &mut U8CStr = (&mut buf).try_into().unwrap();
     write!(cstr, "456").unwrap();
-    assert_eq!(buf, *b"456\0");
     assert_eq!(cstr.as_slice(), b"");
     assert_eq!(cstr.as_slice_with_nul(), b"\0");
     assert_eq!(cstr.as_slice_full(), b"\0");
+    assert_eq!(buf, *b"456\0");
   }
   #[test]
   fn test_writes1() {
     let mut buf = *b"123\0";
     let mut cstr: &mut U8CStr = (&mut buf).try_into().unwrap();
     write!(cstr, "45").unwrap();
-    assert_eq!(buf, *b"45\0\0");
     assert_eq!(cstr.as_slice(), b"");
     assert_eq!(cstr.as_slice_with_nul(), b"\0");
     assert_eq!(cstr.as_slice_full(), b"\0\0");
+    assert_eq!(buf, *b"45\0\0");
   }
   #[test]
   fn test_writes_mid_nul() {
-    let mut buf = *b"123\0456";
+    let mut buf = *b"123\0456\0";
     let mut cstr: &mut U8CStr = (&mut buf).try_into().unwrap();
     write!(cstr, "45").unwrap();
-    assert_eq!(buf, *b"45\0\0456");
     assert_eq!(cstr.as_slice(), b"");
     assert_eq!(cstr.as_slice_with_nul(), b"\0");
-    assert_eq!(cstr.as_slice_full(), b"\0\0456");
+    assert_eq!(cstr.as_slice_full(), b"\0\0456\0");
+    assert_eq!(buf, *b"45\0\0456\0");
   }
   #[test]
   fn test_writes_over_mid_nul() {
-    let mut buf = *b"123\0456";
+    let mut buf = *b"123\0456\0";
     let mut cstr: &mut U8CStr = (&mut buf).try_into().unwrap();
     write!(cstr, "4567").unwrap();
-    assert_eq!(buf, *b"4567\056");
     assert_eq!(cstr.as_slice(), b"");
     assert_eq!(cstr.as_slice_with_nul(), b"\0");
-    assert_eq!(cstr.as_slice_full(), b"\056");
+    assert_eq!(cstr.as_slice_full(), b"\056\0");
+    assert_eq!(buf, *b"4567\056\0");
   }
   #[test]
   fn test_writes_continue() {
@@ -141,10 +141,10 @@ mod tests {
     let mut cstr: &mut U8CStr = (&mut buf).try_into().unwrap();
     write!(cstr, "abc").unwrap();
     write!(cstr, "def").unwrap();
-    assert_eq!(buf, *b"abcdef\089\0");
     assert_eq!(cstr.as_slice(), b"");
     assert_eq!(cstr.as_slice_with_nul(), b"\0");
     assert_eq!(cstr.as_slice_full(), b"\089\0");
+    assert_eq!(buf, *b"abcdef\089\0");
   }
 
   #[test]
@@ -159,5 +159,45 @@ mod tests {
     let mut buf = *b"\0";
     let mut cstr: &mut U8CStr = (&mut buf).try_into().unwrap();
     assert_eq!(cstr.write(b"a").unwrap(), 0);
+  }
+  
+  #[test]
+  fn test_static_index() {
+    let buf = b"abc\0";
+    let cstr: StaticU8CStr<4> = buf.try_into().unwrap();
+    assert_eq!(cstr[0], b'a');
+    assert_eq!(cstr[1], b'b');
+    assert_eq!(cstr[2], b'c');
+    assert_eq!(cstr[3], b'\0');
+  }
+  
+  #[test]
+  fn test_static_index_range() {
+    let buf = b"abc\0";
+    let cstr: StaticU8CStr<4> = buf.try_into().unwrap();
+    let abc: &U8CStr = b"abc\0".try_into().unwrap();
+    let tmp = &cstr[0..]; 
+    assert_eq!(tmp.len_with_nul_usize(), 4);
+    assert_eq!(tmp.capacity_usize(), 4);
+    assert_eq!(tmp.len_usize(), 3);
+    assert_eq!(tmp, abc);
+    let abc: &U8CStr = b"bc\0".try_into().unwrap();
+    let tmp = &cstr[1..]; 
+    assert_eq!(tmp.len_with_nul_usize(), 3);
+    assert_eq!(tmp.capacity_usize(), 3);
+    assert_eq!(tmp.len_usize(), 2);
+    assert_eq!(tmp, abc);
+    let abc: &U8CStr = b"c\0".try_into().unwrap();
+    let tmp = &cstr[2..]; 
+    assert_eq!(tmp.len_with_nul_usize(), 2);
+    assert_eq!(tmp.capacity_usize(), 2);
+    assert_eq!(tmp.len_usize(), 1);
+    assert_eq!(tmp, abc);
+    let abc: &U8CStr = b"\0".try_into().unwrap();
+    let tmp = &cstr[3..]; 
+    assert_eq!(tmp.len_with_nul_usize(), 1);
+    assert_eq!(tmp.capacity_usize(), 1);
+    assert_eq!(tmp.len_usize(), 0);
+    assert_eq!(tmp, abc);
   }
 }

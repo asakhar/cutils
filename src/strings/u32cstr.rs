@@ -1,9 +1,24 @@
 use super::common::{
-  common_cstr_impls, common_cstring_impls, common_str_writes_impl, common_string_writes_impl, common_staticcstr_impls, common_staticstr_writes_impl,
+  common_cstr_impls, common_cstring_impls, common_staticcstr_impls, common_staticstr_writes_impl,
+  common_str_writes_impl, common_string_writes_impl,
 };
-common_cstr_impls!(U32CStr, u32, U32CString, DisplayU32CStr);
-common_staticcstr_impls!(StaticU32CStr, u32, U32CString, U32CStr, DisplayU32CStr);
-common_cstring_impls!(U32CString, u32, U32CStr, DisplayU32CStr);
+common_cstr_impls!(
+  U32CStr,
+  u32,
+  U32CString,
+  DisplayU32CStr,
+  U32CStrIter,
+  StaticU32CStr
+);
+common_staticcstr_impls!(
+  StaticU32CStr,
+  u32,
+  U32CString,
+  U32CStr,
+  DisplayU32CStr,
+  StaticU32CStrIntoIter
+);
+common_cstring_impls!(U32CString, u32, U32CStr, DisplayU32CStr, U32CStringIter);
 
 common_str_writes_impl!(U32CStr, length_as_u32);
 common_string_writes_impl!(U32CString, length_as_u32);
@@ -12,18 +27,12 @@ common_staticstr_writes_impl!(StaticU32CStr<CAPACITY>, length_as_u32);
 #[cfg(not(feature = "no_std"))]
 impl super::writes::io::Write32 for &mut U32CStr {
   fn write32(&mut self, buf: &[u32]) -> std::io::Result<usize> {
-    let writable = self.capacity_usize() - 1;
+    let writable = self.capacity_usize();
     let written = std::cmp::min(buf.len(), writable);
-    unsafe { self.as_mut_slice_full()[0..written].copy_from_slice(&buf[0..written]) };
-    unsafe { self.as_mut_slice_full()[written] = 0 };
-    let new_self = &mut unsafe { self.as_mut_slice_full() }[written..];
+    self.as_mut_slice_full()[0..written].copy_from_slice(&buf[0..written]);
+    let new_self = &mut self.0[written..];
 
-    *self = unsafe {
-      U32CStr::from_mut_slice_unchecked(std::slice::from_raw_parts_mut(
-        new_self.as_mut_ptr(),
-        new_self.len(),
-      ))
-    };
+    *self = unsafe { U32CStr::from_mut_ptr_unchecked(new_self.as_mut_ptr(), new_self.len()) };
     Ok(written)
   }
 
@@ -51,7 +60,7 @@ impl super::writes::io::Write32 for U32CString {
 
 impl super::writes::fmt::Write32 for &mut U32CStr {
   fn write32_str(&mut self, buf: &U32CStr) -> core::fmt::Result {
-    let space = unsafe { self.as_mut_slice_full() };
+    let space = self.as_mut_slice_full();
     if space.len() < buf.len_with_nul_usize() {
       return Err(core::fmt::Error);
     }
@@ -99,7 +108,8 @@ mod tests {
   fn writes32_cstr_fmt() {
     let mut buf = [0; 5];
     let mut str = unsafe { U32CStr::from_mut_slice_unchecked(&mut buf) };
-    str.write32_fmt(format_args!("abc{}", 1)).unwrap();
+    use std::fmt::Write;
+    str.write_fmt(format_args!("abc{}", 1)).unwrap();
     assert_eq!(str.as_slice_full(), &[0]);
     assert_eq!(buf, [b'a' as u32, b'b' as u32, b'c' as u32, b'1' as u32, 0]);
   }
@@ -114,7 +124,8 @@ mod tests {
   #[test]
   fn writes32_cstring_fmt() {
     let mut str = U32CString::new();
-    str.write32_fmt(format_args!("abc{}", 1)).unwrap();
+    use std::io::Write;
+    str.write_fmt(format_args!("abc{}", 1)).unwrap();
     assert_eq!(
       str.as_slice_with_nul(),
       &[b'a' as u32, b'b' as u32, b'c' as u32, b'1' as u32, 0]
