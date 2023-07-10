@@ -1,7 +1,7 @@
-use super::common::{
+use super::{common::{
   common_cstr_impls, common_cstring_impls, common_staticcstr_impls, common_staticstr_writes_impl,
   common_str_writes_impl, common_string_writes_impl,
-};
+}, internals::{decode_u16, encode_u16}};
 common_cstr_impls!(U16CStr, u16, U16CString, DisplayU16CStr, U16CStrIter, StaticU16CStr);
 common_staticcstr_impls!(StaticU16CStr, u16, U16CString, U16CStr, DisplayU16CStr, StaticU16CStrIntoIter);
 common_cstring_impls!(U16CString, u16, U16CStr, DisplayU16CStr, U16CStringIter);
@@ -9,6 +9,24 @@ common_cstring_impls!(U16CString, u16, U16CStr, DisplayU16CStr, U16CStringIter);
 common_str_writes_impl!(U16CStr, length_as_u16);
 common_string_writes_impl!(U16CString, length_as_u16);
 common_staticstr_writes_impl!(StaticU16CStr<CAPACITY>, length_as_u16);
+
+impl U16CStr {
+  pub fn decode(&self) -> Option<String> {
+    decode_u16(self.as_slice())
+  }
+}
+
+impl<const CAP: usize> StaticU16CStr<CAP> {
+  pub fn encode(data: &str) -> Option<Self> {
+    encode_u16(data).as_ref().map(AsRef::as_ref).map(Self::from_slice)
+  }
+}
+
+impl U16CString {
+  pub fn encode(data: &str) -> Option<Self> {
+    encode_u16(data).map(Into::into)
+  }
+}
 
 #[cfg(not(feature = "no_std"))]
 impl super::writes::io::Write16 for &mut U16CStr {

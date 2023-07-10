@@ -13,6 +13,44 @@ pub const fn check_is_valid_utf8(slice: &[u8]) -> Result<(), core::str::Utf8Erro
   }
 }
 
+pub fn encode_u8(utf8: &str) -> Option<Vec<u8>> {
+  utf8.chars().map(| c| {
+    if c as u32 > (u8::MAX as u32) {
+      None
+    } else {
+      Some(c as u8)
+    }
+  }).collect()
+}
+
+pub fn encode_u16(utf8: &str) -> Option<Vec<u16>> {
+  utf8.chars().map(|c| {
+    if c as u32 > (u16::MAX as u32) {
+      None
+    } else {
+      Some(c as u16)
+    }
+  }).collect()
+}
+
+pub fn encode_u32(utf8: &str) -> Vec<u32> {
+  utf8.chars().map(|c| {
+    c as u32
+  }).collect()
+}
+
+pub fn decode_u8(data: &[u8]) -> Option<String> {
+  data.iter().copied().map(Into::into).map(char::from_u32).collect()
+}
+
+pub fn decode_u16(data: &[u16]) -> Option<String> {
+  data.iter().copied().map(Into::into).map(char::from_u32).collect()
+}
+
+pub fn decode_u32(data: &[u32]) -> Option<String> {
+  data.iter().copied().map(char::from_u32).collect()
+}
+
 // A const implementation of https://github.com/rust-lang/rust/blob/d902752866cbbdb331e3cf28ff6bba86ab0f6c62/library/core/src/str/mod.rs#L509-L537
 // Assumes `utf8` is a valid &str
 pub const unsafe fn next_code_point(utf8: &[u8]) -> Option<(u32, &[u8])> {

@@ -1,10 +1,28 @@
-use super::common::{common_cstr_impls, common_cstring_impls, common_staticcstr_impls};
+use super::{common::{common_cstr_impls, common_cstring_impls, common_staticcstr_impls}, internals::{decode_u8, encode_u8}};
 
 common_cstr_impls!(U8CStr, u8, U8CString, DisplayU8CStr, U8CStrIter, StaticU8CStr);
 common_staticcstr_impls!(StaticU8CStr, u8, U8CString, U8CStr, DisplayU8CStr, StaticU8CStrIter);
 common_cstring_impls!(U8CString, u8, U8CStr, DisplayU8CStr, U8CStringIter);
 pub type CStr = U8CStr;
 pub type CString = U8CString;
+
+impl U8CStr {
+  pub fn decode(&self) -> Option<String> {
+    decode_u8(self.as_slice())
+  }
+}
+
+impl<const CAP: usize> StaticU8CStr<CAP> {
+  pub fn encode(data: &str) -> Option<Self> {
+    encode_u8(data).as_ref().map(AsRef::as_ref).map(Self::from_slice)
+  }
+}
+
+impl U8CString {
+  pub fn encode(data: &str) -> Option<Self> {
+    encode_u8(data).map(Into::into)
+  }
+}
 
 #[cfg(not(feature = "no_std"))]
 impl std::io::Write for &mut U8CStr {

@@ -1,7 +1,7 @@
-use super::common::{
+use super::{common::{
   common_cstr_impls, common_cstring_impls, common_staticcstr_impls, common_staticstr_writes_impl,
   common_str_writes_impl, common_string_writes_impl,
-};
+}, internals::{decode_u32, encode_u32}};
 common_cstr_impls!(
   U32CStr,
   u32,
@@ -23,6 +23,24 @@ common_cstring_impls!(U32CString, u32, U32CStr, DisplayU32CStr, U32CStringIter);
 common_str_writes_impl!(U32CStr, length_as_u32);
 common_string_writes_impl!(U32CString, length_as_u32);
 common_staticstr_writes_impl!(StaticU32CStr<CAPACITY>, length_as_u32);
+
+impl U32CStr {
+  pub fn decode(&self) -> Option<String> {
+    decode_u32(self.as_slice())
+  }
+}
+
+impl<const CAP: usize> StaticU32CStr<CAP> {
+  pub fn encode(data: &str) -> Self {
+    Self::from_slice(&encode_u32(data))
+  }
+}
+
+impl U32CString {
+  pub fn encode(data: &str) -> Self {
+    encode_u32(data).into()
+  }
+}
 
 #[cfg(not(feature = "no_std"))]
 impl super::writes::io::Write32 for &mut U32CStr {
