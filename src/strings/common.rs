@@ -817,6 +817,26 @@ macro_rules! common_cstr_impls {
         }
         Ok(<$static<CAPACITY>>::from_slice(&self.0))
       }
+      pub fn iter_strs<'a>(&'a self) -> impl Iterator<Item=&'a $name> {
+        struct Iter<'a> {
+          inner: &'a $name
+        }
+        impl<'a> Iterator for Iter<'a> {
+          type Item = &'a $name;
+          fn next(&mut self) -> Option<Self::Item> {
+            let len = self.inner.len_usize();
+            if len == 0 {
+              None
+            } else {
+              let prev = self.inner;
+              let inner = &self.inner[len..];
+              self.inner = unsafe { core::mem::transmute(inner) };
+              Some(unsafe { core::mem::transmute(prev) })
+            }
+          }
+        }
+        Iter{inner: self}
+      }
     }
     impl<'a> TryFrom<&'a [$type]> for &'a $name {
       type Error = $crate::strings::StrError;
