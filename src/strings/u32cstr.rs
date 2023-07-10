@@ -31,8 +31,12 @@ impl U32CStr {
 }
 
 impl<const CAP: usize> StaticU32CStr<CAP> {
-  pub fn encode(data: &str) -> Self {
-    Self::from_slice(&encode_u32(data))
+  pub fn encode(data: &str) -> Option<Self> {
+    let encoded = encode_u32(data);
+    if encoded.len() > CAP {
+      return None;
+    }
+    Some(Self::from_slice(&encoded))
   }
 }
 

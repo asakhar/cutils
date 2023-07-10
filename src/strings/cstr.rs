@@ -14,7 +14,11 @@ impl U8CStr {
 
 impl<const CAP: usize> StaticU8CStr<CAP> {
   pub fn encode(data: &str) -> Option<Self> {
-    encode_u8(data).as_ref().map(AsRef::as_ref).map(Self::from_slice)
+    let encoded = encode_u8(data)?;
+    if encoded.len() > CAP {
+      return None;
+    }
+    Some(Self::from_slice(&encoded))
   }
 }
 
