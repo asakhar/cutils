@@ -50,12 +50,12 @@ pub fn guid_eq(lhs: GUID, rhs: GUID) -> bool {
     && lhs.Data4 == rhs.Data4
 }
 
-#[cfg(feature = "get-last-error")]
-pub fn code_to_result(code: DWORD) -> Win32Result<()> {
+#[cfg(feature = "winapi")]
+pub fn code_to_result(code: DWORD) -> std::io::Result<()> {
   if code == ERROR_SUCCESS {
     Ok(())
   } else {
-    Win32Error::new(code).to_result()
+    Err(std::io::Error::from_raw_os_error(code as i32))
   }
 }
 
