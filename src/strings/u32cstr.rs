@@ -44,13 +44,18 @@ impl super::writes::io::Write32 for &mut U32CStr {
 #[cfg(not(feature = "no_std"))]
 impl super::writes::io::Write32 for U32CString {
   fn write32(&mut self, buf: &[u32]) -> std::io::Result<usize> {
-    let (inner, len) = self.inner();
-    inner.resize(*len + buf.len() + 1, 0);
-    inner[*len..*len + buf.len()].copy_from_slice(buf);
-    inner[*len + buf.len()] = 0;
-    inner.resize(inner.capacity(), 0);
-    self.refresh();
-    Ok(buf.len())
+    let len = self.len_usize();
+    if buf.is_empty() {
+      return Ok(0);
+    }
+    self.0.truncate(len);
+    let len = self.0.write32(buf);
+    if !matches!(self.0.last(), Some(&0)) {
+      self.0.push(0);
+    }
+    let cap = self.0.capacity();
+    self.0.resize(cap, 0);
+    len
   }
 
   fn flush32(&mut self) -> std::io::Result<()> {
@@ -72,10 +77,11 @@ impl super::writes::fmt::Write32 for &mut U32CStr {
 
 impl super::writes::fmt::Write32 for U32CString {
   fn write32_str(&mut self, buf: &U32CStr) -> core::fmt::Result {
-    let (inner, len) = self.inner();
-    inner.resize(*len + buf.len_with_nul_usize(), 0);
-    inner[*len..*len + buf.len_with_nul_usize()].copy_from_slice(buf.as_slice_with_nul());
-    self.refresh();
+    let len = self.len_usize();
+    self.0.resize(len + buf.len_with_nul_usize(), 0);
+    self.0[len..len + buf.len_with_nul_usize()].copy_from_slice(buf.as_slice_with_nul());
+    let cap = self.0.capacity();
+    self.0.resize(cap, 0);
     Ok(())
   }
 }

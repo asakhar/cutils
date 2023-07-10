@@ -42,16 +42,18 @@ impl<const CAPACITY: usize> std::io::Write for StaticU8CStr<CAPACITY> {
 #[cfg(not(feature = "no_std"))]
 impl std::io::Write for U8CString {
   fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-    let len = self.refresh();
+    let len = self.len_usize();
     if buf.is_empty() {
       return Ok(0);
     }
-    let inner = self.inner();
-    inner.0.truncate(len);
-    let len = inner.0.write(buf)?;
-    inner.0.push(0);
-    self.refresh();
-    Ok(len)
+    self.0.truncate(len);
+    let len = self.0.write(buf);
+    if !matches!(self.0.last(), Some(&0)) {
+      self.0.push(0);
+    }
+    let cap = self.0.capacity();
+    self.0.resize(cap, 0);
+    len
   }
 
   fn flush(&mut self) -> std::io::Result<()> {

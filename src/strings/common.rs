@@ -955,9 +955,8 @@ macro_rules! common_cstr_impls {
 
 macro_rules! common_cstring_impls {
   ($name:ident, $type:ty, $asref:ty, $display:ident, $iter:ident) => {
+    #[derive(Debug, Clone)]
     pub struct $name(Vec<$type>);
-    unsafe impl Send for $name {}
-    unsafe impl Sync for $name {}
     impl $crate::strings::CStrCharType for $name {
       type Char = $type;
     }
@@ -1040,7 +1039,7 @@ macro_rules! common_cstring_impls {
       }
       pub unsafe fn as_mut_slice_full(&mut self) -> &mut [$type] {
         let len = self.0.len() - 1;
-        &mut self.0[0..len - 1]
+        &mut self.0[0..len]
       }
       pub fn as_ptr(&self) -> *const $type {
         self.0.as_ptr()
@@ -1048,20 +1047,24 @@ macro_rules! common_cstring_impls {
       pub fn as_mut_ptr(&mut self) -> *mut $type {
         self.0.as_mut_ptr()
       }
+      pub fn from_slice(data: &[$type]) -> Self {
+        let mut buf = data.to_vec();
+        if let Some(&0) = data.last() {
+          Self(buf)
+        } else {
+          buf.push(0);
+          Self(buf)
+        }
+      }
       pub unsafe fn from_ptr(data: *const $type) -> Self {
         let inf_buf = core::slice::from_raw_parts(data, usize::MAX);
         let len = inf_buf.iter().take_while(|c| **c != 0).count();
         let buf = core::slice::from_raw_parts(data, len + 1).to_vec();
-        Self(buf.to_vec())
+        Self(buf)
       }
-      pub unsafe fn from_ptr_unchecked(data: *const $type, len: usize, capacity: usize) -> Self {
+      pub unsafe fn from_ptr_unchecked(data: *const $type, capacity: usize) -> Self {
         let buf = core::slice::from_raw_parts(data, capacity).to_vec();
-        Self(buf.to_vec())
-      }
-      pub unsafe fn from_ptr_unchecked_calc_len(data: *const $type, capacity: usize) -> Self {
-        let buf = core::slice::from_raw_parts(data, capacity).to_vec();
-        let len = buf.iter().take_while(|c| **c != 0).count();
-        Self(core::cell::UnsafeCell::new((buf, len)))
+        Self(buf)
       }
       pub unsafe fn from_ptr_n(
         data: *const $type,
@@ -1073,70 +1076,61 @@ macro_rules! common_cstring_impls {
           Err($crate::strings::StrError::NulNotFound)
         } else {
           let buf = core::slice::from_raw_parts(data, len + 1).to_vec();
-          Ok(Self(core::cell::UnsafeCell::new((buf, len))))
+          Ok(Self(buf))
         }
       }
-
       pub unsafe fn from_ptr_truncate(data: *const $type, max_len: usize) -> Self {
         let inf_buf = core::slice::from_raw_parts(data, max_len);
         let len = inf_buf.iter().take_while(|c| **c != 0).count();
         let buf = if len == max_len {
-          let mut buf = core::slice::from_raw_parts(data, len).to_vec();
+          let mut buf = core::slice::from_raw_parts(data, max_len).to_vec();
           buf.push(0);
           buf
         } else {
           core::slice::from_raw_parts(data, len + 1).to_vec()
         };
-        Self(core::cell::UnsafeCell::new((buf, len)))
+        Self(buf)
       }
       pub fn display<'a>(&'a self) -> $display<'a> {
         self.as_ref().display()
       }
+      pub fn into_inner(self) -> Vec<$type> {
+        self.0
+      }
     }
     impl From<&[$type]> for $name {
       fn from(value: &[$type]) -> Self {
-        let mut buf = value.to_vec();
-        let len = value.iter().take_while(|c| **c != 0).count();
-        if len == value.len() {
-          buf.push(0);
-        }
-        Self(core::cell::UnsafeCell::new((buf, len)))
+        Self::from_slice(value)
       }
     }
     impl<const N: usize> From<&[$type; N]> for $name {
       fn from(value: &[$type; N]) -> Self {
-        let mut buf = value.to_vec();
-        let len = value.iter().take_while(|c| **c != 0).count();
-        if len == value.len() {
-          buf.push(0);
-        }
-        Self(core::cell::UnsafeCell::new((buf, len)))
+        Self::from_slice(value)
       }
     }
     impl From<$name> for Vec<$type> {
       fn from(value: $name) -> Self {
-        value.0.into_inner().0
+        value.into_inner()
       }
     }
     impl From<Vec<$type>> for $name {
       fn from(mut buf: Vec<$type>) -> Self {
-        let len = buf.iter().take_while(|c| **c != 0).count();
-        if len == buf.len() {
+        if let Some(&0) = buf.last() {
+          Self(buf)
+        } else {
           buf.push(0);
+          Self(buf)
         }
-        Self(core::cell::UnsafeCell::new((buf, len)))
       }
     }
     impl AsRef<$asref> for $name {
       fn as_ref(&self) -> &$asref {
-        self.refresh();
-        unsafe { <$asref>::from_slice_unchecked(&self.inner().0) }
+        unsafe { <$asref>::from_slice_unchecked(&self.0) }
       }
     }
     impl AsMut<$asref> for $name {
       fn as_mut(&mut self) -> &mut $asref {
-        self.refresh();
-        unsafe { <$asref>::from_mut_slice_unchecked(&mut self.inner().0) }
+        unsafe { <$asref>::from_mut_slice_unchecked(&mut self.0) }
       }
     }
     impl core::borrow::Borrow<$asref> for $name {
@@ -1166,13 +1160,6 @@ macro_rules! common_cstring_impls {
     impl Default for $name {
       fn default() -> Self {
         Self::new()
-      }
-    }
-    impl Clone for $name {
-      fn clone(&self) -> Self {
-        self.refresh();
-        let (buf, len) = self.inner();
-        Self(core::cell::UnsafeCell::new((buf.clone(), *len)))
       }
     }
     // /// A call to `$name::into_iter` or `$name::iter` or `$name::iter_mut` returns an instance of this class
@@ -1236,19 +1223,12 @@ macro_rules! common_staticstr_writes_impl {
   ($name:ty, $fn:ident) => {
     impl<const CAPACITY: usize> core::fmt::Write for $name {
       fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        let buf = s.as_bytes();
+        let mut buf = s.as_bytes();
         let prev_len = self.len_usize();
-        let valid_bytes = if let Err(err) = $crate::strings::internals::check_is_valid_utf8(buf) {
-          err.valid_up_to()
-        } else {
-          buf.len()
-        };
-        let mut buf = &buf[0..valid_bytes];
         if buf.is_empty() {
           return Ok(());
         }
-        use $crate::ignore::ResultIgnoreExt;
-        let chars_len = unsafe { $crate::strings::internals::$fn(buf) }.ignore();
+        let chars_len = unsafe { $crate::strings::internals::$fn(buf) }.ok().ok_or(core::fmt::Error)?;
         if chars_len > CAPACITY - prev_len - 1 {
           return Err(core::fmt::Error);
         }
@@ -1311,15 +1291,13 @@ macro_rules! common_str_writes_impl {
     impl core::fmt::Write for &mut $name {
       fn write_str(&mut self, s: &str) -> core::fmt::Result {
         let mut buf = s.as_bytes();
-        use $crate::ignore::ResultIgnoreExt;
-        let chars_len = unsafe { $crate::strings::internals::$fn(buf) }.ignore();
+        let chars_len = unsafe { $crate::strings::internals::$fn(buf) }.ok().ok_or(core::fmt::Error)?;
         let writable = self.capacity_usize();
         if chars_len > writable {
           return Err(core::fmt::Error);
         }
-        let written = chars_len;
         type CharType = <$name as $crate::strings::CStrCharType>::Char;
-        for i in 0..written {
+        for i in 0..chars_len {
           let (cp, rest) = unsafe { $crate::strings::internals::next_code_point(buf).unwrap() };
           if cp > CharType::MAX as u32 {
             return Err(core::fmt::Error);
@@ -1327,8 +1305,8 @@ macro_rules! common_str_writes_impl {
           self.0[i] = cp as CharType;
           buf = rest;
         }
-        self.0[written] = 0;
-        *self = unsafe { core::mem::transmute(&mut self.0[written..]) };
+        self.0[chars_len] = 0;
+        *self = unsafe { core::mem::transmute(&mut self.0[chars_len..]) };
         Ok(())
       }
     }
@@ -1373,22 +1351,14 @@ macro_rules! common_string_writes_impl {
   ($name:ty, $fn:ident) => {
     impl core::fmt::Write for &mut $name {
       fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        let buf = s.as_bytes();
-        let prev_len = self.refresh();
-        let valid_bytes = if let Err(err) = $crate::strings::internals::check_is_valid_utf8(buf) {
-          err.valid_up_to()
-        } else {
-          buf.len()
-        };
-        let mut buf = &buf[0..valid_bytes];
+        let prev_len = self.len_usize();
+        let mut buf = s.as_bytes();
         if buf.is_empty() {
           return Ok(());
         }
-        use $crate::ignore::ResultIgnoreExt;
-        let chars_len = unsafe { $crate::strings::internals::$fn(buf) }.ignore();
-        let inner = self.inner();
-        inner.0.resize(chars_len + prev_len, 0);
-        let buffer = &mut inner.0[prev_len..prev_len + chars_len];
+        let chars_len = unsafe { $crate::strings::internals::$fn(buf) }.ok().ok_or(core::fmt::Error)?;
+        self.0.resize(chars_len + prev_len + 1, 0);
+        let buffer = &mut self.0[prev_len..prev_len + chars_len];
         type CharType = <$name as $crate::strings::CStrCharType>::Char;
         for i in 0..chars_len {
           let (cp, rest) = unsafe { $crate::strings::internals::next_code_point(buf).unwrap() };
@@ -1398,15 +1368,16 @@ macro_rules! common_string_writes_impl {
           buffer[i] = cp as CharType;
           buf = rest;
         }
-        inner.0.push(0);
-        self.refresh();
+        self.0[prev_len+chars_len] = 0;
+        let cap = self.0.capacity();
+        self.0.resize(cap, 0);
         Ok(())
       }
     }
     #[cfg(not(feature = "no_std"))]
     impl std::io::Write for $name {
       fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        let prev_len = self.refresh();
+        let prev_len = self.len_usize();
         let valid_bytes = if let Err(err) = $crate::strings::internals::check_is_valid_utf8(buf) {
           err.valid_up_to()
         } else {
@@ -1418,9 +1389,8 @@ macro_rules! common_string_writes_impl {
         }
         use $crate::ignore::ResultIgnoreExt;
         let chars_len = unsafe { $crate::strings::internals::$fn(buf) }.ignore();
-        let inner = self.inner();
-        inner.0.resize(chars_len + prev_len, 0);
-        let buffer = &mut inner.0[prev_len..prev_len + chars_len];
+        self.0.resize(chars_len + prev_len + 1, 0);
+        let buffer = &mut self.0[prev_len..prev_len + chars_len];
         type CharType = <$name as $crate::strings::CStrCharType>::Char;
         for i in 0..chars_len {
           let (cp, rest) = unsafe { $crate::strings::internals::next_code_point(buf).unwrap() };
@@ -1433,8 +1403,9 @@ macro_rules! common_string_writes_impl {
           buffer[i] = cp as CharType;
           buf = rest;
         }
-        inner.0.push(0);
-        self.refresh();
+        self.0[prev_len + chars_len] = 0;
+        let cap = self.0.capacity();
+        self.0.resize(cap, 0);
         Ok(valid_bytes)
       }
 
