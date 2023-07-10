@@ -91,6 +91,48 @@ mod tests {
   use super::*;
   use std::io::Write;
   #[test]
+  fn test_comparison() {
+    let buf1 = *b"123\0";
+    let cstr1: &U8CStr = (&buf1).try_into().unwrap();
+    let buf2 = *b"123\0";
+    let cstr2: &U8CStr = (&buf2).try_into().unwrap();
+    assert_eq!(cstr1, cstr2);
+    assert_eq!(cstr2, cstr1);
+    let buf1 = *b"1234\0";
+    let cstr1: &U8CStr = (&buf1).try_into().unwrap();
+    let buf2 = *b"123\0";
+    let cstr2: &U8CStr = (&buf2).try_into().unwrap();
+    assert_ne!(cstr1, cstr2);
+    assert_ne!(cstr2, cstr1);
+    let buf1 = *b"123\04\0";
+    let cstr1: &U8CStr = (&buf1).try_into().unwrap();
+    let buf2 = *b"123\0";
+    let cstr2: &U8CStr = (&buf2).try_into().unwrap();
+    assert_eq!(cstr1, cstr2);
+    assert_eq!(cstr2, cstr1);
+  }
+  #[test]
+  fn test_comparison_static() {
+    let buf1 = *b"123\0";
+    let cstr1: StaticU8CStr<4> = (&buf1).try_into().unwrap();
+    let buf2 = *b"123\0";
+    let cstr2: &U8CStr = (&buf2).try_into().unwrap();
+    assert_eq!(&*cstr1, cstr2);
+    assert_eq!(cstr2, &*cstr1);
+    let buf1 = *b"1234\0";
+    let cstr1: StaticU8CStr<5> = (&buf1).try_into().unwrap();
+    let buf2 = *b"123\0";
+    let cstr2: StaticU8CStr<4> = (&buf2).try_into().unwrap();
+    assert_ne!(cstr1, cstr2);
+    assert_ne!(cstr2, cstr1);
+    let buf1 = *b"123\04\0";
+    let cstr1: StaticU8CStr<6> = (&buf1).try_into().unwrap();
+    let buf2 = *b"123\0";
+    let cstr2: StaticU8CStr<4> = (&buf2).try_into().unwrap();
+    assert_eq!(cstr1, cstr2);
+    assert_eq!(cstr2, cstr1);
+  }
+  #[test]
   fn test_display() {
     let buf = *b"123\0";
     let cstr: &U8CStr = (&buf).try_into().unwrap();

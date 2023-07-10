@@ -468,20 +468,9 @@ macro_rules! common_staticcstr_impls {
     }
     impl<const CAP1: usize, const CAP2: usize> core::cmp::PartialEq<$name<CAP1>> for $name<CAP2> {
       fn eq(&self, rhs: &$name<CAP1>) -> bool {
-        let first = self
-          .iter()
-          .take_while(|a| **a != 0)
-          .map(Some)
-          .chain(core::iter::once(None));
-        let second = rhs
-          .iter()
-          .take_while(|a| **a != 0)
-          .map(Some)
-          .chain(core::iter::once(None));
-        match first.zip(second).take_while(|(a, b)| (a == b)).last() {
-          Some((a, b)) if a == b => true,
-          _ => false,
-        }
+        let first = self.iter().copied().take_while(|a|*a!=0).chain(core::iter::once(0));
+        let second = rhs.iter().copied().take_while(|a|*a!=0).chain(core::iter::once(0));
+        first.zip(second).all(|(a, b)| a == b)
       }
     }
     impl<const CAP: usize> core::cmp::Eq for $name<CAP> {}
@@ -941,12 +930,9 @@ macro_rules! common_cstr_impls {
     }
     impl core::cmp::PartialEq<$name> for $name {
       fn eq(&self, rhs: &$name) -> bool {
-        let first = self.take_while(|a|**a!=0).map(Some).chain(core::iter::once(None));
-        let second = rhs.take_while(|a|**a!=0).map(Some).chain(core::iter::once(None));
-        match first.zip(second).take_while(|(a, b)| (a == b)).last() {
-          Some((a, b)) if a == b => true,
-          _ => false,
-        }
+        let first = self.copied().take_while(|a|*a!=0).chain(core::iter::once(0));
+        let second = rhs.copied().take_while(|a|*a!=0).chain(core::iter::once(0));
+        first.zip(second).all(|(a, b)| a == b)
       }
     }
     impl core::cmp::Eq for $name {}
