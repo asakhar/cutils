@@ -38,6 +38,11 @@ impl<const CAP: usize> StaticU32CStr<CAP> {
     }
     Some(Self::from_slice(&encoded))
   }
+  pub fn encode_truncate(data: &str) -> Self {
+    let encoded = encode_u32(data);
+    let len = core::cmp::min(encoded.len(), CAP);
+    Self::from_slice(&encoded[..len])
+  }
 }
 
 impl U32CString {
