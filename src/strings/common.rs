@@ -625,6 +625,14 @@ macro_rules! common_cstr_impls {
       pub const unsafe fn as_mut_ptr_bypass(&self) -> *mut $type {
         self.0.as_ptr() as *mut _
       }
+      /// Truncates string to maximum size of `max_len` characters
+      pub fn truncate(&mut self, max_len: usize) {
+        let len = self.len_usize();
+        if len < max_len {
+          return;
+        }
+        self.0[max_len] = 0;
+      }
       /// Returns the character at a given index
       /// NOTE: this method returns None in case of `index` is out of bounds of the underlying slice
       pub const fn get(&self, index: usize) -> Option<$type> {
