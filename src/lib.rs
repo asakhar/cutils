@@ -64,14 +64,6 @@ pub fn check_handle(handle: HANDLE) -> bool {
   !handle.is_null() && handle != INVALID_HANDLE_VALUE
 }
 
-pub trait GetPvoidExt {
-  fn get_pvoid(&self) -> *mut core::ffi::c_void {
-    self as *const Self as *const core::ffi::c_void as *mut core::ffi::c_void
-  }
-}
-
-impl<T> GetPvoidExt for T {}
-
 #[cfg(feature = "winapi")]
 pub trait Win32ErrorFromCrExt {
   fn from_cr(ret: CONFIGRET, default: DWORD) -> Win32Error;
