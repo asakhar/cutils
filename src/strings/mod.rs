@@ -13,8 +13,15 @@ pub use u16cstr::*;
 pub use u32cstr::*;
 pub use writes::*;
 
+pub fn encode<T: CStrCharType>(data: &str) -> Option<T> {
+  T::encode(data)
+}
+
 pub trait CStrCharType {
   type Char;
+  fn encode(_data: &str) -> Option<Self> where Self: Sized {
+    unimplemented!("Encoding is not implemented for this type")
+  }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

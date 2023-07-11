@@ -1,11 +1,18 @@
 macro_rules! common_staticcstr_impls {
-  ($name:ident, $type:ty, $into:ty, $asref:ty, $display:ident, $iter:ident) => {
+  ($name:ident, $type:ty, $into:ty, $asref:ty, $display:ident, $iter:ident, $encode:path) => {
     /// A static str contains it's data on the stack
     #[derive(Debug, Clone, Copy)]
     #[repr(C)]
     pub struct $name<const CAPACITY: usize>([$type; CAPACITY], [$type; 1]);
     impl<const CAPACITY: usize> $crate::strings::CStrCharType for $name<CAPACITY> {
       type Char = $type;
+      fn encode(data: &str) -> Option<Self> where Self: Sized {
+        let vec = $encode(data)?;
+        if vec.len() > CAPACITY {
+          return None;
+        }
+        Some(Self::from_slice(&vec))
+      }
     }
     impl<const CAPACITY: usize> $name<CAPACITY> {
       /// Total capacity of static str
@@ -968,11 +975,15 @@ macro_rules! common_cstr_impls {
 }
 
 macro_rules! common_cstring_impls {
-  ($name:ident, $type:ty, $asref:ty, $display:ident, $iter:ident) => {
+  ($name:ident, $type:ty, $asref:ty, $display:ident, $iter:ident, $encode:path) => {
     #[derive(Debug, Clone)]
     pub struct $name(Vec<$type>);
     impl $crate::strings::CStrCharType for $name {
       type Char = $type;
+      fn encode(data: &str) -> Option<Self> where Self: Sized {
+        let vec = $encode(data)?;
+        Some(Self::from(vec))
+      }
     }
     impl $name {
       pub fn new() -> Self {

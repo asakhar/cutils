@@ -1,7 +1,10 @@
-use super::{common::{
-  common_cstr_impls, common_cstring_impls, common_staticcstr_impls, common_staticstr_writes_impl,
-  common_str_writes_impl, common_string_writes_impl,
-}, internals::{decode_u32, encode_u32}};
+use super::{
+  common::{
+    common_cstr_impls, common_cstring_impls, common_staticcstr_impls, common_staticstr_writes_impl,
+    common_str_writes_impl, common_string_writes_impl,
+  },
+  internals::{decode_u32, encode_u32},
+};
 common_cstr_impls!(
   U32CStr,
   u32,
@@ -16,9 +19,10 @@ common_staticcstr_impls!(
   U32CString,
   U32CStr,
   DisplayU32CStr,
-  StaticU32CStrIntoIter
+  StaticU32CStrIntoIter,
+  super::internals::encode_u32
 );
-common_cstring_impls!(U32CString, u32, U32CStr, DisplayU32CStr, U32CStringIter);
+common_cstring_impls!(U32CString, u32, U32CStr, DisplayU32CStr, U32CStringIter, super::internals::encode_u32);
 
 common_str_writes_impl!(U32CStr, length_as_u32);
 common_string_writes_impl!(U32CString, length_as_u32);
@@ -32,14 +36,14 @@ impl U32CStr {
 
 impl<const CAP: usize> StaticU32CStr<CAP> {
   pub fn encode(data: &str) -> Option<Self> {
-    let encoded = encode_u32(data);
+    let encoded = encode_u32(data)?;
     if encoded.len() > CAP {
       return None;
     }
     Some(Self::from_slice(&encoded))
   }
   pub fn encode_truncate(data: &str) -> Self {
-    let encoded = encode_u32(data);
+    let encoded = encode_u32(data).unwrap();
     let len = core::cmp::min(encoded.len(), CAP);
     Self::from_slice(&encoded[..len])
   }
@@ -47,7 +51,7 @@ impl<const CAP: usize> StaticU32CStr<CAP> {
 
 impl U32CString {
   pub fn encode(data: &str) -> Self {
-    encode_u32(data).into()
+    encode_u32(data).unwrap().into()
   }
 }
 

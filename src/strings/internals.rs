@@ -33,10 +33,10 @@ pub fn encode_u16(utf8: &str) -> Option<Vec<u16>> {
   }).collect()
 }
 
-pub fn encode_u32(utf8: &str) -> Vec<u32> {
-  utf8.chars().map(|c| {
+pub fn encode_u32(utf8: &str) -> Option<Vec<u32>> {
+  Some(utf8.chars().map(|c| {
     c as u32
-  }).collect()
+  }).collect())
 }
 
 pub fn decode_u8(data: &[u8]) -> Option<String> {

@@ -1,8 +1,8 @@
 use super::{common::{common_cstr_impls, common_cstring_impls, common_staticcstr_impls}, internals::{decode_u8, encode_u8}};
 
 common_cstr_impls!(U8CStr, u8, U8CString, DisplayU8CStr, U8CStrIter, StaticU8CStr);
-common_staticcstr_impls!(StaticU8CStr, u8, U8CString, U8CStr, DisplayU8CStr, StaticU8CStrIter);
-common_cstring_impls!(U8CString, u8, U8CStr, DisplayU8CStr, U8CStringIter);
+common_staticcstr_impls!(StaticU8CStr, u8, U8CString, U8CStr, DisplayU8CStr, StaticU8CStrIter, super::internals::encode_u8);
+common_cstring_impls!(U8CString, u8, U8CStr, DisplayU8CStr, U8CStringIter, super::internals::encode_u8);
 pub type CStr = U8CStr;
 pub type CString = U8CString;
 

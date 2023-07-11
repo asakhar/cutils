@@ -3,8 +3,8 @@ use super::{common::{
   common_str_writes_impl, common_string_writes_impl,
 }, internals::{decode_u16, encode_u16}};
 common_cstr_impls!(U16CStr, u16, U16CString, DisplayU16CStr, U16CStrIter, StaticU16CStr);
-common_staticcstr_impls!(StaticU16CStr, u16, U16CString, U16CStr, DisplayU16CStr, StaticU16CStrIntoIter);
-common_cstring_impls!(U16CString, u16, U16CStr, DisplayU16CStr, U16CStringIter);
+common_staticcstr_impls!(StaticU16CStr, u16, U16CString, U16CStr, DisplayU16CStr, StaticU16CStrIntoIter, super::internals::encode_u16);
+common_cstring_impls!(U16CString, u16, U16CStr, DisplayU16CStr, U16CStringIter, super::internals::encode_u16);
 
 common_str_writes_impl!(U16CStr, length_as_u16);
 common_string_writes_impl!(U16CString, length_as_u16);
