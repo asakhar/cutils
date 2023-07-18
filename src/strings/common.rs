@@ -1072,6 +1072,28 @@ macro_rules! common_cstring_impls {
       pub fn as_mut_ptr(&mut self) -> *mut $type {
         self.0.as_mut_ptr()
       }
+      /// Returns the character at a given index
+      pub fn get(&self, index: usize) -> Option<$type> {
+        self.0.get(index).copied()
+      }
+      /// Returns the character at a given index
+      pub fn get_ref(&self, index: usize) -> Option<&$type> {
+        self.0.get(index)
+      }
+      /// Returns mutable reference to the character at a given index
+      pub fn get_mut(&mut self, index: usize) -> Option<&mut $type> {
+        let len = self.0.len()-1;
+        self.0[0..len].get_mut(index)
+      }
+      /// Returns the substring of the string
+      pub fn range(&self, range: core::ops::RangeFrom<usize>) -> &$asref {
+        unsafe { std::mem::transmute(&self.0[range]) }
+      }
+      /// Returns the mutable substring of the static str
+      pub fn range_mut(&mut self, range: core::ops::RangeFrom<usize>) -> &mut $asref {
+        let len = self.0.len()-1;
+        unsafe { std::mem::transmute(&mut self.0[0..len][range]) }
+      }
       pub fn from_slice(data: &[$type]) -> Self {
         let mut buf = data.to_vec();
         if let Some(&0) = data.last() {
@@ -1121,6 +1143,24 @@ macro_rules! common_cstring_impls {
       }
       pub fn into_inner(self) -> Vec<$type> {
         self.0
+      }
+      /// Returns an iterator over characters of the static str
+      /// until nul-terminator
+      /// NOTE: Items are returned by shared reference
+      pub fn iter(&self) -> $iter<&$name> {
+        $iter(self, 0)
+      }
+      /// Returns an iterator over characters of the static str
+      /// until nul-terminator
+      /// NOTE: Items are returned by mutable reference
+      pub fn iter_mut(&mut self) -> $iter<&mut $name> {
+        $iter(self, 0)
+      }
+      /// Returns an iterator over characters of the static str
+      /// until nul-terminator
+      /// NOTE: Items are returned by value
+      pub fn into_iter(self) -> $iter<$name> {
+        $iter(self, 0)
       }
     }
     impl From<&[$type]> for $name {
@@ -1187,60 +1227,85 @@ macro_rules! common_cstring_impls {
         Self::new()
       }
     }
-    // /// A call to `$name::into_iter` or `$name::iter` or `$name::iter_mut` returns an instance of this class
-    // /// It can be used to iterate over characters of static str until nul-terminator
-    // pub struct $iter<T>(T, usize);
-    // impl core::iter::Iterator for $iter<$name> {
-    //   type Item = $type;
-    //   fn next(&mut self) -> Option<<Self as Iterator>::Item> {
-    //     let ret = self.0.get(self.1)?;
-    //     if ret == 0 {
-    //       return None;
-    //     }
-    //     self.1 += 1;
-    //     Some(ret)
-    //   }
-    // }
-    // impl<'col> core::iter::Iterator for $iter<&'col $name> {
-    //   type Item = &'col $type;
-    //   fn next(&mut self) -> Option<<Self as Iterator>::Item> {
-    //     let ret = self.0.get_ref(self.1)?;
-    //     if *ret == 0 {
-    //       return None;
-    //     }
-    //     self.1 += 1;
-    //     Some(ret)
-    //   }
-    // }
-    // impl<'col> core::iter::Iterator for $iter<&'col mut $name> {
-    //   type Item = &'col mut $type;
-    //   fn next(&mut self) -> Option<<Self as Iterator>::Item> {
-    //     let ret = self.0.get_mut(self.1)?;
-    //     if *ret == 0 {
-    //       return None;
-    //     }
-    //     self.1 += 1;
-    //     Some(unsafe { &mut *(ret as *mut _) })
-    //   }
-    // }
-    // impl core::iter::IntoIterator for $name {
-    //   type Item = $type;
-    //   type IntoIter = $iter<$name>;
-    //   fn into_iter(self) -> Self::IntoIter {
-    //     self.into_iter()
-    //   }
-    // }
-    // impl core::cmp::PartialEq<$name> for $name {
-    //   fn eq(&self, rhs: &$name) -> bool {
-    //     let first = self.iter().map(Some).chain(core::iter::once(None));
-    //     let second = rhs.iter().map(Some).chain(core::iter::once(None));
-    //     match first.zip(second).take_while(|(a, b)| (a == b)).last() {
-    //       Some((a, b)) if a == b => true,
-    //       _ => false,
-    //     }
-    //   }
-    // }
-    // impl core::cmp::Eq for $name {}
+    impl core::ops::Index<usize> for $name {
+      type Output = $type;
+      #[inline]
+      fn index(&self, index: usize) -> &Self::Output {
+        self.get_ref(index).unwrap()
+      }
+    }
+    impl core::ops::IndexMut<usize> for $name {
+      #[inline]
+      fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        self.get_mut(index).unwrap()
+      }
+    }
+    impl core::ops::Index<core::ops::RangeFrom<usize>> for $name {
+      type Output = $asref;
+      #[inline]
+      fn index(&self, index: core::ops::RangeFrom<usize>) -> &Self::Output {
+        self.range(index)
+      }
+    }
+    impl core::ops::IndexMut<core::ops::RangeFrom<usize>>
+      for $name
+    {
+      #[inline]
+      fn index_mut(&mut self, index: core::ops::RangeFrom<usize>) -> &mut Self::Output {
+        self.range_mut(index)
+      }
+    }
+    /// A call to `$name::into_iter` or `$name::iter` or `$name::iter_mut` returns an instance of this class
+    /// It can be used to iterate over characters of static str until nul-terminator
+    pub struct $iter<T>(T, usize);
+    impl core::iter::Iterator for $iter<$name> {
+      type Item = $type;
+      fn next(&mut self) -> Option<<Self as Iterator>::Item> {
+        let ret = self.0.get(self.1)?;
+        if ret == 0 {
+          return None;
+        }
+        self.1 += 1;
+        Some(ret)
+      }
+    }
+    impl<'col> core::iter::Iterator for $iter<&'col $name> {
+      type Item = &'col $type;
+      fn next(&mut self) -> Option<<Self as Iterator>::Item> {
+        let ret = self.0.get_ref(self.1)?;
+        if *ret == 0 {
+          return None;
+        }
+        self.1 += 1;
+        Some(ret)
+      }
+    }
+    impl<'col> core::iter::Iterator for $iter<&'col mut $name> {
+      type Item = &'col mut $type;
+      fn next(&mut self) -> Option<<Self as Iterator>::Item> {
+        let ret = self.0.get_mut(self.1)?;
+        if *ret == 0 {
+          return None;
+        }
+        self.1 += 1;
+        Some(unsafe { &mut *(ret as *mut _) })
+      }
+    }
+    impl core::iter::IntoIterator for $name {
+      type Item = $type;
+      type IntoIter = $iter<$name>;
+      fn into_iter(self) -> Self::IntoIter {
+        self.into_iter()
+      }
+    }
+    impl core::cmp::PartialEq<$name> for $name {
+      fn eq(&self, rhs: &$name) -> bool {
+        let first = self.iter().copied().take_while(|a|*a!=0).chain(core::iter::once(0));
+        let second = rhs.iter().copied().take_while(|a|*a!=0).chain(core::iter::once(0));
+        first.zip(second).all(|(a, b)| a == b)
+      }
+    }
+    impl core::cmp::Eq for $name {}
   };
 }
 
