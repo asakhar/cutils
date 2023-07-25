@@ -1,10 +1,11 @@
 use super::{common::{
   common_cstr_impls, common_cstring_impls, common_staticcstr_impls, common_staticstr_writes_impl,
-  common_str_writes_impl, common_string_writes_impl,
+  common_str_writes_impl, common_string_writes_impl, common_owningcstr_impls
 }, internals::{decode_u16, encode_u16}};
 common_cstr_impls!(U16CStr, u16, U16CString, DisplayU16CStr, U16CStrIter, StaticU16CStr);
 common_staticcstr_impls!(StaticU16CStr, u16, U16CString, U16CStr, DisplayU16CStr, StaticU16CStrIntoIter, super::internals::encode_u16);
 common_cstring_impls!(U16CString, u16, U16CStr, DisplayU16CStr, U16CStringIter, super::internals::encode_u16);
+common_owningcstr_impls!(U16OwningCStr, u16, U16CString, U16CStr, DisplayU16CStr, U16OwningCStrIter);
 
 common_str_writes_impl!(U16CStr, length_as_u16);
 common_string_writes_impl!(U16CString, length_as_u16);

@@ -6,7 +6,10 @@ macro_rules! common_staticcstr_impls {
     pub struct $name<const CAPACITY: usize>([$type; CAPACITY], [$type; 1]);
     impl<const CAPACITY: usize> $crate::strings::CStrCharType for $name<CAPACITY> {
       type Char = $type;
-      fn encode(data: &str) -> Option<Self> where Self: Sized {
+      fn encode(data: &str) -> Option<Self>
+      where
+        Self: Sized,
+      {
         let vec = $encode(data)?;
         if vec.len() > CAPACITY {
           return None;
@@ -475,8 +478,16 @@ macro_rules! common_staticcstr_impls {
     }
     impl<const CAP1: usize, const CAP2: usize> core::cmp::PartialEq<$name<CAP1>> for $name<CAP2> {
       fn eq(&self, rhs: &$name<CAP1>) -> bool {
-        let first = self.iter().copied().take_while(|a|*a!=0).chain(core::iter::once(0));
-        let second = rhs.iter().copied().take_while(|a|*a!=0).chain(core::iter::once(0));
+        let first = self
+          .iter()
+          .copied()
+          .take_while(|a| *a != 0)
+          .chain(core::iter::once(0));
+        let second = rhs
+          .iter()
+          .copied()
+          .take_while(|a| *a != 0)
+          .chain(core::iter::once(0));
         first.zip(second).all(|(a, b)| a == b)
       }
     }
@@ -980,7 +991,10 @@ macro_rules! common_cstring_impls {
     pub struct $name(Vec<$type>);
     impl $crate::strings::CStrCharType for $name {
       type Char = $type;
-      fn encode(data: &str) -> Option<Self> where Self: Sized {
+      fn encode(data: &str) -> Option<Self>
+      where
+        Self: Sized,
+      {
         let vec = $encode(data)?;
         Some(Self::from(vec))
       }
@@ -998,12 +1012,14 @@ macro_rules! common_cstring_impls {
       }
       pub fn reserve<T: TryInto<usize>>(&mut self, total: T) {
         let cap = self.0.capacity();
-        self.0.resize(std::cmp::max(total.try_into().unwrap_or(0), cap), 0);
+        self
+          .0
+          .resize(std::cmp::max(total.try_into().unwrap_or(0), cap), 0);
         let cap = self.0.capacity();
         self.0.resize(cap, 0);
       }
       pub fn len_usize(&self) -> usize {
-        self.0.iter().take_while(|c|**c != 0).count()
+        self.0.iter().take_while(|c| **c != 0).count()
       }
       pub fn len_dword(&self) -> u32 {
         self.len_usize() as u32
@@ -1082,7 +1098,7 @@ macro_rules! common_cstring_impls {
       }
       /// Returns mutable reference to the character at a given index
       pub fn get_mut(&mut self, index: usize) -> Option<&mut $type> {
-        let len = self.0.len()-1;
+        let len = self.0.len() - 1;
         self.0[0..len].get_mut(index)
       }
       /// Returns the substring of the string
@@ -1091,7 +1107,7 @@ macro_rules! common_cstring_impls {
       }
       /// Returns the mutable substring of the static str
       pub fn range_mut(&mut self, range: core::ops::RangeFrom<usize>) -> &mut $asref {
-        let len = self.0.len()-1;
+        let len = self.0.len() - 1;
         unsafe { std::mem::transmute(&mut self.0[0..len][range]) }
       }
       pub fn from_slice(data: &[$type]) -> Self {
@@ -1247,9 +1263,7 @@ macro_rules! common_cstring_impls {
         self.range(index)
       }
     }
-    impl core::ops::IndexMut<core::ops::RangeFrom<usize>>
-      for $name
-    {
+    impl core::ops::IndexMut<core::ops::RangeFrom<usize>> for $name {
       #[inline]
       fn index_mut(&mut self, index: core::ops::RangeFrom<usize>) -> &mut Self::Output {
         self.range_mut(index)
@@ -1300,12 +1314,401 @@ macro_rules! common_cstring_impls {
     }
     impl core::cmp::PartialEq<$name> for $name {
       fn eq(&self, rhs: &$name) -> bool {
-        let first = self.iter().copied().take_while(|a|*a!=0).chain(core::iter::once(0));
-        let second = rhs.iter().copied().take_while(|a|*a!=0).chain(core::iter::once(0));
+        let first = self
+          .iter()
+          .copied()
+          .take_while(|a| *a != 0)
+          .chain(core::iter::once(0));
+        let second = rhs
+          .iter()
+          .copied()
+          .take_while(|a| *a != 0)
+          .chain(core::iter::once(0));
         first.zip(second).all(|(a, b)| a == b)
       }
     }
     impl core::cmp::Eq for $name {}
+  };
+}
+
+macro_rules! common_owningcstr_impls {
+  ($name:ident, $type:ty, $into:ty, $asref:ty, $display:ident, $iter:ident) => {
+    #[derive(Debug)]
+    pub struct $name<DELETER: FnOnce(*mut $type)> {
+      data: *mut $type,
+      deleter: Option<DELETER>,
+    }
+    impl<DELETER: FnOnce(*mut $type)> $crate::strings::CStrCharType for $name<DELETER> {
+      type Char = $type;
+    }
+    impl<DELETER: FnOnce(*mut $type)> $name<DELETER> {
+      /// Calculates the length of str by iterating over it's contents
+      /// searching for nul-terminator character
+      pub const fn len_usize(&self) -> usize {
+        let mut items = unsafe { ::std::slice::from_raw_parts(self.data, usize::MAX) };
+        let mut i = 0;
+        while let Some(item) = items.first() {
+          if *item == 0 {
+            return i;
+          }
+          items = match items {
+            [_, rest @ ..] => rest,
+            [] => break,
+          };
+          i += 1
+        }
+        i
+      }
+      /// Checks wheither the str is empty
+      /// i.e. starts with nul-terminator character
+      pub const fn is_empty(&self) -> bool {
+        self.len_usize() == 0
+      }
+      /// Calculates the length of str by iterating over it's contents
+      /// searching for nul-terminator character.
+      /// NOTE: This method returns the result as DWORD
+      pub const fn len_dword(&self) -> u32 {
+        self.len_usize() as u32
+      }
+      /// Calculates the length of str by iterating over it's contents
+      /// searching for nul-terminator character.
+      /// NOTE: This method casts calculated length from usize to the desired type via TryInto trait
+      pub fn len<T: TryFrom<usize> + Default>(&self) -> T {
+        self.len_usize().try_into().unwrap_or_default()
+      }
+      /// Calculates the size in bytes of contents including nul-terminator character
+      pub fn sizeof_usize(&self) -> usize {
+        (self.len_with_nul_usize() * core::mem::size_of::<$type>())
+      }
+      /// Calculates the size in bytes of contents including nul-terminator character.
+      /// NOTE: This method casts the result to DWORD
+      pub fn sizeof_dword(&self) -> u32 {
+        (self.len_with_nul_dword() * core::mem::size_of::<$type>() as u32)
+      }
+      /// Calculates the size in bytes of contents including nul-terminator character.
+      /// NOTE: This method casts the result to the desired type via TryInto trait
+      pub fn sizeof<T: TryFrom<usize> + Default>(&self) -> T {
+        (self.len_with_nul_usize() * core::mem::size_of::<$type>())
+          .try_into()
+          .unwrap_or_default()
+      }
+      /// Calculates the length of the str including nul-terminator character.
+      pub const fn len_with_nul_usize(&self) -> usize {
+        self.len_usize() + 1
+      }
+      /// Calculates the length of the str including nul-terminator character.
+      /// NOTE: This method casts the result to DWORD
+      pub const fn len_with_nul_dword(&self) -> u32 {
+        self.len_dword() + 1
+      }
+      /// Calculates the length of the str including nul-terminator character.
+      /// NOTE: This method casts the result to the desired type via TryInto trait
+      pub fn len_with_nul<T: TryFrom<usize> + Default>(&self) -> T {
+        (self.len_usize() + 1).try_into().unwrap_or_default()
+      }
+      /// Returns the contents of the str until nul-terminator (not including) as immutable slice
+      pub const fn as_slice(&self) -> &[$type] {
+        // Const implementation of: "&self.0[0..self.len_usize()]""
+        unsafe { core::slice::from_raw_parts(self.data, self.len_usize()) }
+      }
+      /// Returns the contents of the str until nul-terminator (not including) as mutable slice
+      pub fn as_mut_slice(&mut self) -> &mut [$type] {
+        let len = self.len_usize();
+        &mut self.0[0..len]
+      }
+      /// Returns the contents of the str until nul-terminator (and including it) as immutable slice
+      pub const fn as_slice_with_nul(&self) -> &[$type] {
+        // Const implementation of: "&self.0[0..self.len_with_nul_usize()]"
+        unsafe { core::slice::from_raw_parts(self.data, self.len_with_nul_usize()) }
+      }
+      /// Returns the contents of the str until nul-terminator (and including it) as mutable slice
+      /// SAFETY: caller should not mutate the nul-termianator
+      pub unsafe fn as_mut_slice_with_nul(&mut self) -> &mut [$type] {
+        let len = self.len_with_nul_usize();
+        core::slice::from_raw_parts_mut(self.0.as_mut_ptr(), len)
+      }
+      /// Returns the const pointer to the contents
+      /// NOTE: string represented by the returned pointer is always nul-terminated
+      /// and is at most `CAPACITY` characters long (not including nul-terminator)
+      pub const fn as_ptr(&self) -> *const $type {
+        self.data
+      }
+      /// Returns the mutable pointer to the contents
+      /// SAFETY: extra nul-terminator at position `return value`.offset(1) should not be altered
+      pub fn as_mut_ptr(&mut self) -> *mut $type {
+        self.data
+      }
+      /// Returns the mutable pointer to the contents given shared reference
+      /// SAFETY: although the returned pointer is mutable, the string represented by it should not be altered
+      /// NOTE: this method is useful for FFI functions that does not require string mutation, however does take mutable pointer
+      pub const unsafe fn as_mut_ptr_bypass(&self) -> *mut $type {
+        self.data
+      }
+      /// Returns the character at a given index
+      pub const fn get(&self, index: usize) -> Option<$type> {
+        if index >= self.len_usize() {
+          return None;
+        }
+        Some(unsafe { *(self.data.add(index) as *const _) })
+      }
+      /// Returns the character at a given index
+      pub const fn get_ref(&self, index: usize) -> Option<&$type> {
+        if index >= self.len_usize() {
+          return None;
+        }
+        Some(unsafe { &*(self.data.add(index) as *const _) })
+      }
+      /// Returns mutable reference to the character at a given index
+      /// NOTE: this method returns None in case of `index` beeing greater then or equal to `CAPACITY`
+      pub fn get_mut(&mut self, index: usize) -> Option<&mut $type> {
+        unsafe { ::std::slice::from_raw_parts_mut(self.data, self.len_usize()).get_mut(index) }
+      }
+      /// Returns the substring of the str
+      pub const fn range(&self, range: core::ops::RangeFrom<usize>) -> &$asref {
+        let len = self.len_usize();
+        if range.start >= len {
+          unsafe {
+            <$asref>::from_slice_unchecked(::std::slice::from_raw_parts(self.data.add(len), len))
+          }
+        } else {
+          unsafe { <$asref>::from_ptr_unchecked(self.data.add(range.start), len + 1 - range.start) }
+        }
+      }
+      /// Returns the mutable substring of the static str
+      pub fn range_mut(&mut self, range: core::ops::RangeFrom<usize>) -> &mut $asref {
+        let len = self.len_usize();
+        if range.start >= len {
+          unsafe {
+            <$asref>::from_mut_slice_unchecked(::std::slice::from_raw_parts_mut(
+              self.data.add(len),
+              len,
+            ))
+          }
+        } else {
+          unsafe {
+            <$asref>::from_mut_ptr_unchecked(self.data.add(range.start), len + 1 - range.start)
+          }
+        }
+      }
+      /// Ownes the string pointed to by data
+      pub const unsafe fn from_ptr_safe_deleter(data: *mut $type, deleter: DELETER) -> Self {
+        Self {
+          data,
+          deleter: Some(deleter),
+        }
+      }
+      /// Returns display wrapper for static str
+      pub fn display<'a>(&'a self) -> $display<'a> {
+        $display(unsafe { ::std::slice::from_raw_parts(self.data, self.len_usize()) })
+      }
+      /// Returns an iterator over characters of the static str
+      /// until nul-terminator
+      /// NOTE: Items are returned by shared reference
+      pub fn iter(&self) -> $iter<&$name<DELETER>> {
+        let len = self.len_usize();
+        $iter(self, 0, len)
+      }
+      /// Returns an iterator over characters of the static str
+      /// until nul-terminator
+      /// NOTE: Items are returned by mutable reference
+      pub fn iter_mut(&mut self) -> $iter<&mut $name<DELETER>> {
+        let len = self.len_usize();
+        $iter(self, 0, len)
+      }
+      /// Returns an iterator over characters of the static str
+      /// until nul-terminator
+      /// NOTE: Items are returned by value
+      pub fn into_iter(self) -> $iter<$name<DELETER>> {
+        let len = self.len_usize();
+        $iter(self, 0, len)
+      }
+    }
+    impl $name<fn(*mut $type)> {
+      /// Ownes the string pointed to by data
+      pub const unsafe fn from_ptr<T>(
+        data: *mut $type,
+        deleter: unsafe extern "C" fn(*mut T),
+      ) -> Self {
+        Self {
+          data,
+          deleter: Some(core::mem::transmute(deleter)),
+        }
+      }
+      pub const unsafe fn new(data: *mut $type) -> Self {
+        extern "C" {
+          fn free(ptr: *mut ::core::ffi::c_void);
+        }
+        let deleter: unsafe extern "C" fn(*mut ::core::ffi::c_void) = free;
+        Self {
+          data,
+          deleter: Some(core::mem::transmute(deleter))
+        }
+      }
+    }
+    impl<DELETER: Default + FnOnce(*mut $type)> $name<DELETER> {
+      pub fn from_ptr_default(data: *mut $type) -> Self {
+        Self {
+          data,
+          deleter: Default::default(),
+        }
+      }
+    }
+    impl<DELETER: FnOnce(*mut $type)> From<$name<DELETER>> for $into {
+      fn from(value: $name<DELETER>) -> Self {
+        let len = value.len_usize();
+        Self::from(unsafe { std::slice::from_raw_parts(value.data, len + 1) })
+      }
+    }
+    impl<DELETER: FnOnce(*mut $type)> AsRef<$name<DELETER>> for &$name<DELETER> {
+      fn as_ref(&self) -> &$name<DELETER> {
+        self
+      }
+    }
+    impl<DELETER: FnOnce(*mut $type)> AsMut<$name<DELETER>> for &mut $name<DELETER> {
+      fn as_mut(&mut self) -> &mut $name<DELETER> {
+        self
+      }
+    }
+    impl<DELETER: FnOnce(*mut $type)> AsRef<$asref> for $name<DELETER> {
+      fn as_ref(&self) -> &$asref {
+        let len = self.len_usize();
+        unsafe { <$asref>::from_ptr_unchecked(self.0.as_ptr(), len + 1) }
+      }
+    }
+    impl<DELETER: FnOnce(*mut $type)> AsMut<$asref> for $name<DELETER> {
+      fn as_mut(&mut self) -> &mut $asref {
+        let len = self.len_usize();
+        unsafe { <$asref>::from_mut_ptr_unchecked(self.0.as_mut_ptr(), len + 1) }
+      }
+    }
+    impl<DELETER: FnOnce(*mut $type)> core::borrow::Borrow<$asref> for $name<DELETER> {
+      fn borrow(&self) -> &$asref {
+        self.as_ref()
+      }
+    }
+    impl<DELETER: FnOnce(*mut $type)> core::borrow::BorrowMut<$asref> for $name<DELETER> {
+      fn borrow_mut(&mut self) -> &mut $asref {
+        self.as_mut()
+      }
+    }
+    impl<DELETER: FnOnce(*mut $type)> core::ops::Deref for $name<DELETER> {
+      type Target = $asref;
+
+      #[inline]
+      fn deref(&self) -> &$asref {
+        self.as_ref()
+      }
+    }
+    impl<DELETER: FnOnce(*mut $type)> core::ops::DerefMut for $name<DELETER> {
+      #[inline]
+      fn deref_mut(&mut self) -> &mut Self::Target {
+        self.as_mut()
+      }
+    }
+    impl<DELETER: FnOnce(*mut $type)> core::ops::Index<usize> for $name<DELETER> {
+      type Output = $type;
+      #[inline]
+      fn index(&self, index: usize) -> &Self::Output {
+        self.get_ref(index).unwrap()
+      }
+    }
+    impl<DELETER: FnOnce(*mut $type)> core::ops::IndexMut<usize> for $name<DELETER> {
+      #[inline]
+      fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        self.get_mut(index).unwrap()
+      }
+    }
+    impl<DELETER: FnOnce(*mut $type)> core::ops::Index<core::ops::RangeFrom<usize>>
+      for $name<DELETER>
+    {
+      type Output = $asref;
+      #[inline]
+      fn index(&self, index: core::ops::RangeFrom<usize>) -> &Self::Output {
+        self.range(index)
+      }
+    }
+    impl<DELETER: FnOnce(*mut $type)> core::ops::IndexMut<core::ops::RangeFrom<usize>>
+      for $name<DELETER>
+    {
+      #[inline]
+      fn index_mut(&mut self, index: core::ops::RangeFrom<usize>) -> &mut Self::Output {
+        self.range_mut(index)
+      }
+    }
+    // impl<DELETER: FnOnce(*mut $type)> Drop for $name<DELETER> {
+    //   fn drop(&mut self) {
+    //     self.deleter(self.data)
+    //   }
+    // }
+    impl<DELETER: FnOnce(*mut $type)> Drop for $name<DELETER> {
+      fn drop(&mut self) {
+        (self.deleter.take().unwrap())(self.data)
+      }
+    }
+    /// A call to `$name::into_iter` or `$name::iter` or `$name::iter_mut` returns an instance of this class
+    /// It can be used to iterate over characters of str until nul-terminator
+    pub struct $iter<T>(T, usize, usize);
+    impl<DELETER: FnOnce(*mut $type)> core::iter::Iterator for $iter<$name<DELETER>> {
+      type Item = $type;
+      fn next(&mut self) -> Option<<Self as Iterator>::Item> {
+        let ret = unsafe { ::std::slice::from_raw_parts(self.0.data, self.2) }.get(self.1)?;
+        if *ret == 0 {
+          return None;
+        }
+        self.1 += 1;
+        Some(*ret)
+      }
+    }
+    impl<'col, DELETER: FnOnce(*mut $type)> core::iter::Iterator for $iter<&'col $name<DELETER>> {
+      type Item = &'col $type;
+      fn next(&mut self) -> Option<<Self as Iterator>::Item> {
+        let ret = unsafe { ::std::slice::from_raw_parts(self.0.data, self.2) }.get(self.1)?;
+        if *ret == 0 {
+          return None;
+        }
+        self.1 += 1;
+        Some(ret)
+      }
+    }
+    impl<'col, DELETER: FnOnce(*mut $type)> core::iter::Iterator
+      for $iter<&'col mut $name<DELETER>>
+    {
+      type Item = &'col mut $type;
+      fn next(&mut self) -> Option<<Self as Iterator>::Item> {
+        let ret =
+          unsafe { ::std::slice::from_raw_parts_mut(self.0.data, self.2) }.get_mut(self.1)?;
+        if *ret == 0 {
+          return None;
+        }
+        self.1 += 1;
+        Some(unsafe { &mut *(ret as *mut _) })
+      }
+    }
+    impl<DELETER: FnOnce(*mut $type)> core::iter::IntoIterator for $name<DELETER> {
+      type Item = $type;
+      type IntoIter = $iter<$name<DELETER>>;
+      fn into_iter(self) -> Self::IntoIter {
+        self.into_iter()
+      }
+    }
+    impl<DEL1: FnOnce(*mut $type), DEL2: FnOnce(*mut $type)> core::cmp::PartialEq<$name<DEL1>>
+      for $name<DEL2>
+    {
+      fn eq(&self, rhs: &$name<DEL1>) -> bool {
+        let first = self
+          .iter()
+          .copied()
+          .take_while(|a| *a != 0)
+          .chain(core::iter::once(0));
+        let second = rhs
+          .iter()
+          .copied()
+          .take_while(|a| *a != 0)
+          .chain(core::iter::once(0));
+        first.zip(second).all(|(a, b)| a == b)
+      }
+    }
+    impl<DEL: FnOnce(*mut $type)> core::cmp::Eq for $name<DEL> {}
   };
 }
 
@@ -1318,7 +1721,9 @@ macro_rules! common_staticstr_writes_impl {
         if buf.is_empty() {
           return Ok(());
         }
-        let chars_len = unsafe { $crate::strings::internals::$fn(buf) }.ok().ok_or(core::fmt::Error)?;
+        let chars_len = unsafe { $crate::strings::internals::$fn(buf) }
+          .ok()
+          .ok_or(core::fmt::Error)?;
         if chars_len > CAPACITY - prev_len - 1 {
           return Err(core::fmt::Error);
         }
@@ -1381,7 +1786,9 @@ macro_rules! common_str_writes_impl {
     impl core::fmt::Write for &mut $name {
       fn write_str(&mut self, s: &str) -> core::fmt::Result {
         let mut buf = s.as_bytes();
-        let chars_len = unsafe { $crate::strings::internals::$fn(buf) }.ok().ok_or(core::fmt::Error)?;
+        let chars_len = unsafe { $crate::strings::internals::$fn(buf) }
+          .ok()
+          .ok_or(core::fmt::Error)?;
         let writable = self.capacity_usize();
         if chars_len > writable {
           return Err(core::fmt::Error);
@@ -1446,7 +1853,9 @@ macro_rules! common_string_writes_impl {
         if buf.is_empty() {
           return Ok(());
         }
-        let chars_len = unsafe { $crate::strings::internals::$fn(buf) }.ok().ok_or(core::fmt::Error)?;
+        let chars_len = unsafe { $crate::strings::internals::$fn(buf) }
+          .ok()
+          .ok_or(core::fmt::Error)?;
         self.0.resize(chars_len + prev_len + 1, 0);
         let buffer = &mut self.0[prev_len..prev_len + chars_len];
         type CharType = <$name as $crate::strings::CStrCharType>::Char;
@@ -1458,7 +1867,7 @@ macro_rules! common_string_writes_impl {
           buffer[i] = cp as CharType;
           buf = rest;
         }
-        self.0[prev_len+chars_len] = 0;
+        self.0[prev_len + chars_len] = 0;
         let cap = self.0.capacity();
         self.0.resize(cap, 0);
         Ok(())
@@ -1508,6 +1917,7 @@ macro_rules! common_string_writes_impl {
 
 pub(super) use common_cstr_impls;
 pub(super) use common_cstring_impls;
+pub(super) use common_owningcstr_impls;
 pub(super) use common_staticcstr_impls;
 pub(super) use common_staticstr_writes_impl;
 pub(super) use common_str_writes_impl;

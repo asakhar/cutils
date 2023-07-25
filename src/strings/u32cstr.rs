@@ -1,7 +1,7 @@
 use super::{
   common::{
     common_cstr_impls, common_cstring_impls, common_staticcstr_impls, common_staticstr_writes_impl,
-    common_str_writes_impl, common_string_writes_impl,
+    common_str_writes_impl, common_string_writes_impl, common_owningcstr_impls
   },
   internals::{decode_u32, encode_u32},
 };
@@ -23,6 +23,7 @@ common_staticcstr_impls!(
   super::internals::encode_u32
 );
 common_cstring_impls!(U32CString, u32, U32CStr, DisplayU32CStr, U32CStringIter, super::internals::encode_u32);
+common_owningcstr_impls!(U32OwningCStr, u32, U32CString, U32CStr, DisplayU32CStr, U32OwningCStrIter);
 
 common_str_writes_impl!(U32CStr, length_as_u32);
 common_string_writes_impl!(U32CString, length_as_u32);

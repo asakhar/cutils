@@ -1,8 +1,9 @@
-use super::{common::{common_cstr_impls, common_cstring_impls, common_staticcstr_impls}, internals::{decode_u8, encode_u8}};
+use super::{common::{common_cstr_impls, common_cstring_impls, common_staticcstr_impls, common_owningcstr_impls}, internals::{decode_u8, encode_u8}};
 
 common_cstr_impls!(U8CStr, u8, U8CString, DisplayU8CStr, U8CStrIter, StaticU8CStr);
 common_staticcstr_impls!(StaticU8CStr, u8, U8CString, U8CStr, DisplayU8CStr, StaticU8CStrIter, super::internals::encode_u8);
 common_cstring_impls!(U8CString, u8, U8CStr, DisplayU8CStr, U8CStringIter, super::internals::encode_u8);
+common_owningcstr_impls!(U8OwningCStr, u8, U8CString, U8CStr, DisplayU8CStr, U8OwningCStrIter);
 pub type CStr = U8CStr;
 pub type CString = U8CString;
 
@@ -311,5 +312,36 @@ mod tests {
     assert_eq!(tmp.capacity_usize(), 1);
     assert_eq!(tmp.len_usize(), 0);
     assert_eq!(tmp, abc);
+  }
+  #[test]
+  fn test_owning_str() {
+    extern "C" {
+      fn free(ptr: *mut std::ffi::c_void);
+      fn calloc(num: usize, size: usize) -> *mut std::ffi::c_void;
+    }
+    let cnt = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let cnt_c = std::sync::Arc::clone(&cnt);
+    let deleter = |ptr: *mut u8| {
+      unsafe{free(ptr.cast())};
+      cnt_c.store(true, core::sync::atomic::Ordering::Relaxed);
+    };
+    let data = unsafe { calloc(1, 5) }.cast();
+    let tmp = unsafe { std::slice::from_raw_parts_mut(data, 5) };
+    tmp.copy_from_slice(b"abcd\0");
+    let string = unsafe { U8OwningCStr::from_ptr_safe_deleter(data, deleter) };
+    assert_eq!(format!("{}", string.display()), "abcd");
+    drop(string);
+    assert!(cnt.load(core::sync::atomic::Ordering::Relaxed))
+  }
+  #[test]
+  fn test_owning_str_free() {
+    extern "C" {
+      fn calloc(num: usize, size: usize) -> *mut std::ffi::c_void;
+    }
+    let data = unsafe { calloc(1, 5) }.cast();
+    let tmp = unsafe { std::slice::from_raw_parts_mut(data, 5) };
+    tmp.copy_from_slice(b"abcd\0");
+    let string = unsafe { U8OwningCStr::new(data) };
+    assert_eq!(format!("{}", string.display()), "abcd");
   }
 }
