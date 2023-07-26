@@ -2,43 +2,27 @@
 pub mod arrays;
 pub mod deferred;
 pub mod definitions;
+pub mod files;
 pub mod ignore;
 pub mod inspection;
 pub mod strings;
-pub mod files;
 pub use cutils_macro::*;
 
-#[cfg(feature = "get-last-error")]
-use get_last_error::Win32Error;
 #[cfg(feature = "winapi")]
 use winapi::{
   shared::{guiddef::GUID, minwindef::DWORD, ntdef::HANDLE, winerror::ERROR_SUCCESS},
   um::{cfgmgr32::CONFIGRET, errhandlingapi::SetLastError, handleapi::INVALID_HANDLE_VALUE},
 };
 
-#[cfg(feature = "get-last-error")]
-pub type Win32Result<T> = Result<T, Win32Error>;
-
-#[cfg(feature = "get-last-error")]
-pub fn set_last_error(error: Win32Error) {
+#[cfg(feature = "winapi")]
+pub fn set_last_error(error: std::io::Error) {
   unsafe {
-    SetLastError(error.code());
-  }
-}
-
-#[cfg(feature = "get-last-error")]
-pub trait Win32ErrorToResultExt {
-  fn to_result(self) -> Win32Result<()>;
-}
-
-#[cfg(feature = "get-last-error")]
-impl Win32ErrorToResultExt for Win32Error {
-  fn to_result(self) -> Win32Result<()> {
-    if self.code() == ERROR_SUCCESS {
-      Ok(())
-    } else {
-      Err(self)
-    }
+    SetLastError(
+      error
+        .raw_os_error()
+        .map(|e| e as u32)
+        .unwrap_or(ERROR_SUCCESS),
+    );
   }
 }
 
@@ -65,19 +49,19 @@ pub fn check_handle(handle: HANDLE) -> bool {
 }
 
 #[cfg(feature = "winapi")]
-pub trait Win32ErrorFromCrExt {
-  fn from_cr(ret: CONFIGRET, default: DWORD) -> Win32Error;
+pub trait ErrorFromCrExt {
+  fn from_cr(ret: CONFIGRET, default: DWORD) -> Self;
 }
 
 #[cfg(feature = "winapi")]
-impl Win32ErrorFromCrExt for Win32Error {
-  fn from_cr(ret: CONFIGRET, default: DWORD) -> Win32Error {
+impl ErrorFromCrExt for std::io::Error {
+  fn from_cr(ret: CONFIGRET, default: DWORD) -> Self {
     let err = unsafe { CM_MapCrToWin32Err(ret, default) };
-    Win32Error::new(err)
+    std::io::Error::from_raw_os_error(err as i32)
   }
 }
 
 #[cfg(feature = "winapi")]
-extern "C" {
+extern "system" {
   fn CM_MapCrToWin32Err(CmReturnCode: CONFIGRET, DefaultErr: DWORD) -> DWORD;
 }

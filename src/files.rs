@@ -1,6 +1,5 @@
 use std::path::{Path, PathBuf};
 
-use get_last_error::Win32Error;
 use winapi::shared::minwindef::MAX_PATH;
 use winapi::shared::{minwindef::DWORD, ntdef::HANDLE};
 use winapi::um::fileapi::{CreateFileA, CreateFileW};
@@ -16,7 +15,7 @@ use winapi::um::winnt::{
 };
 
 use crate::strings::{CStr, WideCStr};
-use crate::{check_handle, Win32Result};
+use crate::check_handle;
 use winapi::um::sysinfoapi::GetWindowsDirectoryW;
 use winapi::um::winnt::WCHAR;
 
@@ -25,7 +24,7 @@ pub trait FileName {
     &self,
     options: WindowsFileOpenOptions<'a, 'b>,
     disposition: DWORD,
-  ) -> Win32Result<WindowsFile>;
+  ) -> std::io::Result<WindowsFile>;
 }
 
 impl<T: AsRef<WideCStr>> FileName for T {
@@ -33,7 +32,7 @@ impl<T: AsRef<WideCStr>> FileName for T {
     &self,
     options: WindowsFileOpenOptions<'a, 'b>,
     disposition: DWORD,
-  ) -> Win32Result<WindowsFile> {
+  ) -> std::io::Result<WindowsFile> {
     let handle = unsafe {
       CreateFileW(
         self.as_ref().as_ptr(),
@@ -52,7 +51,7 @@ impl<T: AsRef<WideCStr>> FileName for T {
       )
     };
     if !check_handle(handle) {
-      return Err(Win32Error::get_last_error());
+      return Err(std::io::Error::last_os_error());
     }
     Ok(WindowsFile { handle })
   }
@@ -63,7 +62,7 @@ impl FileName for CStr {
     &self,
     options: WindowsFileOpenOptions<'a, 'b>,
     disposition: DWORD,
-  ) -> Win32Result<WindowsFile> {
+  ) -> std::io::Result<WindowsFile> {
     let handle = unsafe {
       CreateFileA(
         self.as_ptr() as *const _,
@@ -82,7 +81,7 @@ impl FileName for CStr {
       )
     };
     if !check_handle(handle) {
-      return Err(Win32Error::get_last_error());
+      return Err(std::io::Error::last_os_error());
     }
     Ok(WindowsFile { handle })
   }
@@ -198,26 +197,26 @@ impl<'a, 'b> WindowsFileOpenOptions<'a, 'b> {
       template_file: template,
     }
   }
-  pub fn create_always(self, name: &impl FileName) -> Win32Result<WindowsFile> {
+  pub fn create_always(self, name: &impl FileName) -> std::io::Result<WindowsFile> {
     name.open(self, CREATE_ALWAYS)
   }
-  pub fn create_new(self, name: &impl FileName) -> Win32Result<WindowsFile> {
+  pub fn create_new(self, name: &impl FileName) -> std::io::Result<WindowsFile> {
     name.open(self, CREATE_NEW)
   }
-  pub fn open_always(self, name: &impl FileName) -> Win32Result<WindowsFile> {
+  pub fn open_always(self, name: &impl FileName) -> std::io::Result<WindowsFile> {
     name.open(self, OPEN_ALWAYS)
   }
-  pub fn open_existing(self, name: &impl FileName) -> Win32Result<WindowsFile> {
+  pub fn open_existing(self, name: &impl FileName) -> std::io::Result<WindowsFile> {
     name.open(self, OPEN_EXISTING)
   }
-  pub fn truncate_existing(self, name: &impl FileName) -> Win32Result<WindowsFile> {
+  pub fn truncate_existing(self, name: &impl FileName) -> std::io::Result<WindowsFile> {
     name.open(self, TRUNCATE_EXISTING)
   }
   pub fn open_custom_disposition(
     self,
     name: &impl FileName,
     disposition: DWORD,
-  ) -> Win32Result<WindowsFile> {
+  ) -> std::io::Result<WindowsFile> {
     name.open(self, disposition)
   }
 }
@@ -240,11 +239,11 @@ impl WindowsFile {
   }
 }
 
-pub fn get_windows_dir_path() -> Win32Result<PathBuf> {
+pub fn get_windows_dir_path() -> std::io::Result<PathBuf> {
   let mut windows_directory = [0 as WCHAR; MAX_PATH];
   let result = unsafe { GetWindowsDirectoryW(windows_directory.as_mut_ptr(), MAX_PATH as u32) };
   if result == 0 {
-    return Err(Win32Error::get_last_error());
+    return Err(std::io::Error::last_os_error());
   }
   let windows_dir = unsafe { WideCStr::from_ptr(windows_directory.as_ptr()) };
   let windows_dir = windows_dir.to_os_string();
