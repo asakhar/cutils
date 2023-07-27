@@ -33,6 +33,11 @@ impl AttachToIoErrorExt for std::io::Error {
     std::io::Error::new(self.kind(), format!("{}: {}", self, attachment))
   }
 }
+#[cfg(feature = "winapi")]
+pub fn get_last_error_code() -> u32 {
+  use winapi::um::errhandlingapi::GetLastError;
+  unsafe { GetLastError() }
+}
 
 #[cfg(test)]
 mod tests {
