@@ -2,24 +2,10 @@
 macro_rules! current_function {
   () => {{
     fn f() {}
-    fn type_name_of<T>(_: T) -> &'static str {
-      std::any::type_name::<T>()
-    }
-    let name = type_name_of(f);
+    let name = $crate::type_name_of(f);
     name.strip_suffix("::f").unwrap()
   }};
 }
-
-pub trait InitZeroed {
-  unsafe fn init_zeroed() -> Self
-  where
-    Self: Sized,
-  {
-    std::mem::zeroed()
-  }
-}
-
-impl<T> InitZeroed for T {}
 
 pub trait GetPtrExt {
   fn get_const_ptr(&self) -> *const Self {
@@ -32,26 +18,6 @@ pub trait GetPtrExt {
 
 impl<T> GetPtrExt for T {}
 
-pub trait CastToConstVoidPtrExt {
-  fn cast_to_pcvoid(self) -> *const core::ffi::c_void;
-}
-
-impl<T> CastToConstVoidPtrExt for *const T {
-  fn cast_to_pcvoid(self) -> *const core::ffi::c_void {
-    self as *const _
-  }
-}
-
-pub trait CastToMutVoidPtrExt {
-  fn cast_to_pvoid(self) -> *mut core::ffi::c_void;
-}
-
-impl<T> CastToMutVoidPtrExt for *mut T {
-  fn cast_to_pvoid(self) -> *mut core::ffi::c_void {
-    self as *mut _
-  }
-}
-
 #[macro_export]
 macro_rules! csizeof {
   ($name:path) => {
@@ -59,6 +25,12 @@ macro_rules! csizeof {
   };
   (=$val:expr) => {
     core::mem::size_of_val(&$val) as _
+  };
+  ($name:path; $type:ty) => {
+    core::mem::size_of::<$name>() as $type
+  };
+  (=$val:expr; $type:ty) => {
+    core::mem::size_of_val(&$val) as $type
   };
 }
 

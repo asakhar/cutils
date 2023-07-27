@@ -7,6 +7,11 @@ pub mod ignore;
 pub mod inspection;
 pub mod strings;
 pub use cutils_macro::*;
+pub mod errors;
+
+pub fn type_name_of<T>(_: T) -> &'static str {
+  core::any::type_name::<T>()
+}
 
 #[cfg(feature = "winapi")]
 use winapi::{

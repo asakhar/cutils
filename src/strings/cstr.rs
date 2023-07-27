@@ -91,26 +91,12 @@ impl std::io::Write for U8CString {
 
 impl<'a> From<&'a U8CStr> for &'a core::ffi::CStr {
   fn from(value: &'a U8CStr) -> Self {
-    unsafe { std::ffi::CStr::from_bytes_with_nul_unchecked(value.as_slice_with_nul()) }
-  }
-}
-impl<'a> From<&'a mut U8CStr> for &'a mut core::ffi::CStr {
-  fn from(value: &'a mut U8CStr) -> Self {
-    let cstr_ref =
-      unsafe { core::ffi::CStr::from_bytes_with_nul_unchecked(value.as_slice_with_nul()) };
-    unsafe { &mut *(cstr_ref as *const _ as *mut _) }
+    unsafe { std::ffi::CStr::from_bytes_until_nul(value.as_slice_with_nul()).unwrap_unchecked() }
   }
 }
 impl From<&core::ffi::CStr> for &U8CStr {
   fn from(value: &core::ffi::CStr) -> Self {
     unsafe { std::mem::transmute(value.to_bytes_with_nul()) }
-  }
-}
-impl From<&mut core::ffi::CStr> for &mut U8CStr {
-  fn from(value: &mut core::ffi::CStr) -> Self {
-    let slice = value.to_bytes_with_nul();
-    let slice: &mut [u8] = unsafe { &mut *(slice as *const _ as *mut _) };
-    unsafe { core::mem::transmute(slice) }
   }
 }
 
